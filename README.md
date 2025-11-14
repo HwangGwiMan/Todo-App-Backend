@@ -187,6 +187,106 @@ jwt.expiration=86400000  # 24시간 (밀리초)
 }
 ```
 
+### 검색 및 필터링
+
+`GET /api/todos` 엔드포인트는 다음 쿼리 파라미터를 지원합니다:
+
+- `keyword`: 검색 키워드 (제목, 설명)
+- `status`: 상태 필터 (TODO, IN_PROGRESS, DONE)
+- `priority`: 우선순위 필터 (HIGH, MEDIUM, LOW)
+- `sortBy`: 정렬 필드 (createdAt, dueDate, priority, position, title)
+- `sortDirection`: 정렬 방향 (ASC, DESC)
+- `page`: 페이지 번호 (0부터 시작)
+- `size`: 페이지 크기
+
+예시:
+```
+GET /api/todos?status=TODO&priority=HIGH&sortBy=createdAt&sortDirection=DESC&page=0&size=20
+```
+
+**참고**: Spring의 `@ModelAttribute`는 평면 쿼리 파라미터를 기대합니다. 프론트엔드에서 중첩 객체(`searchRequest[page]=0`) 형식이 아닌 평면 형식(`page=0`)으로 전달해야 합니다.
+
+## 🎯 개발 진행 상황
+
+### ✅ Phase 1 완료 (2024)
+
+**구현 완료된 기능:**
+
+- [x] **인증 시스템**
+  - JWT 기반 인증
+  - 회원가입/로그인 API
+  - 인증 필터 및 보안 설정
+  - 사용자 정보 관리
+
+- [x] **TODO CRUD API**
+  - TODO 생성 (`POST /api/todos`)
+  - TODO 조회 (`GET /api/todos`, `GET /api/todos/{id}`)
+  - TODO 수정 (`PUT /api/todos/{id}`)
+  - TODO 상태 변경 (`PATCH /api/todos/{id}/status`)
+  - TODO 삭제 (`DELETE /api/todos/{id}`)
+
+- [x] **검색 및 필터링**
+  - 키워드 검색 (제목, 설명)
+  - 상태 필터링 (TODO, IN_PROGRESS, DONE)
+  - 우선순위 필터링 (HIGH, MEDIUM, LOW)
+  - 정렬 기능 (생성일, 마감일, 우선순위, 제목)
+  - 페이징 지원
+
+- [x] **통계 API**
+  - 사용자별 TODO 통계 (`GET /api/todos/stats`)
+  - 전체, 할 일, 진행중, 완료 개수
+  - 완료율 계산
+
+- [x] **API 문서화**
+  - OpenAPI/Swagger 통합
+  - Swagger UI 제공
+  - API 스펙 자동 생성
+
+- [x] **예외 처리**
+  - 전역 예외 핸들러
+  - 공통 에러 응답 형식
+  - 유효성 검사
+
+- [x] **데이터베이스**
+  - MariaDB 연동
+  - JPA/Hibernate 사용
+  - 엔티티 관계 설정
+
+### 🚧 Phase 2 예정
+
+**다음 단계 구현 예정:**
+
+- [ ] **프로젝트 기능**
+  - 프로젝트 엔티티 및 API
+  - 프로젝트별 TODO 그룹화
+  - 프로젝트 통계
+
+- [ ] **고급 검색 기능**
+  - 날짜 범위 검색 (마감일)
+  - 복합 필터 조합
+  - 저장된 검색 조건
+
+- [ ] **TODO 고급 기능**
+  - TODO 순서 변경 (position)
+  - TODO 복제
+  - TODO 템플릿
+  - TODO 태그 기능
+
+- [ ] **성능 최적화**
+  - 쿼리 최적화
+  - 캐싱 전략
+  - 인덱스 최적화
+
+- [ ] **보안 강화**
+  - 비밀번호 정책 강화
+  - Rate Limiting
+  - CSRF 보호
+
+- [ ] **테스트**
+  - 단위 테스트
+  - 통합 테스트
+  - API 테스트
+
 ## 🔧 설정
 
 ### application.properties
@@ -301,6 +401,9 @@ server.port=8081
 spring.web.cors.allowed-origins=http://localhost:5173
 ```
 
+### 쿼리 파라미터 파싱 오류
+Spring의 `@ModelAttribute`는 평면 쿼리 파라미터를 기대합니다. 프론트엔드에서 중첩 객체 형식(`searchRequest[page]=0`)이 아닌 평면 형식(`page=0`)으로 전달해야 합니다.
+
 ## 🔄 Git 워크플로우
 
 이 프로젝트는 독립적인 Git 레포지토리입니다.
@@ -393,4 +496,3 @@ java -jar build/libs/backend-0.0.1-SNAPSHOT.jar
 ## 📝 라이선스
 
 이 프로젝트는 독립적으로 관리되며, 프론트엔드와 별도의 라이선스를 가질 수 있습니다.
-
