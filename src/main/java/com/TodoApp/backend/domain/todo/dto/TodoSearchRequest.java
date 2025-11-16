@@ -7,6 +7,7 @@ import lombok.Builder;
 import lombok.Data;
 import lombok.NoArgsConstructor;
 import org.springframework.format.annotation.DateTimeFormat;
+import org.springframework.lang.Nullable;
 
 import java.time.LocalDateTime;
 
@@ -17,21 +18,26 @@ import java.time.LocalDateTime;
 @Schema(description = "TODO 검색/필터링 요청")
 public class TodoSearchRequest {
 
-    @Schema(description = "검색 키워드 (제목, 설명)", example = "Spring")
+    @Schema(description = "검색 키워드 (제목, 설명)", example = "Spring", nullable = true, types = {"string", "null"})
+    @Nullable
     private String keyword;
 
-    @Schema(description = "상태 필터", example = "TODO", allowableValues = {"TODO", "IN_PROGRESS", "DONE"})
+    @Schema(description = "상태 필터", example = "TODO", allowableValues = {"TODO", "IN_PROGRESS", "DONE"}, nullable = true, types = {"string", "null"})
+    @Nullable
     private Todo.TodoStatus status;
 
-    @Schema(description = "우선순위 필터", example = "HIGH", allowableValues = {"HIGH", "MEDIUM", "LOW"})
+    @Schema(description = "우선순위 필터", example = "HIGH", allowableValues = {"HIGH", "MEDIUM", "LOW"}, nullable = true, types = {"string", "null"})
+    @Nullable
     private Todo.Priority priority;
 
-    @Schema(description = "마감일 시작 범위", example = "2025-11-01T00:00:00")
+    @Schema(description = "마감일 시작 범위", example = "2025-11-01T00:00:00", nullable = true, types = {"string", "null"})
     @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME)
+    @Nullable
     private LocalDateTime dueDateStart;
 
-    @Schema(description = "마감일 종료 범위", example = "2025-11-30T23:59:59")
+    @Schema(description = "마감일 종료 범위", example = "2025-11-30T23:59:59", nullable = true, types = {"string", "null"})
     @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME)
+    @Nullable
     private LocalDateTime dueDateEnd;
 
     @Schema(description = "정렬 필드", example = "createdAt", allowableValues = {"createdAt", "dueDate", "priority", "position", "title"})
@@ -51,7 +57,8 @@ public class TodoSearchRequest {
     private Integer size = 50;
 
     // Phase 2
-    @Schema(description = "프로젝트 ID 필터 (Phase 2)", example = "1")
+    @Schema(description = "프로젝트 ID 필터 (Phase 2)", example = "1", nullable = true, types = {"integer", "null"})
+    @Nullable
     private Long projectId;
 }
 

@@ -7,6 +7,7 @@ import lombok.Builder;
 import lombok.Data;
 import lombok.NoArgsConstructor;
 
+import java.sql.Timestamp;
 import java.time.LocalDateTime;
 
 @Entity
@@ -54,15 +55,15 @@ public class Todo {
     private Long projectId;
 
     @Column(name = "created_at", nullable = false, updatable = false)
-    private LocalDateTime createdAt;
+    private Timestamp createdAt;
 
     @Column(name = "updated_at", nullable = false)
-    private LocalDateTime updatedAt;
+    private Timestamp updatedAt;
 
     @PrePersist
     protected void onCreate() {
-        createdAt = LocalDateTime.now();
-        updatedAt = LocalDateTime.now();
+        createdAt = Timestamp.valueOf(LocalDateTime.now());
+        updatedAt = Timestamp.valueOf(LocalDateTime.now());
         if (status == null) {
             status = TodoStatus.TODO;
         }
@@ -73,7 +74,7 @@ public class Todo {
 
     @PreUpdate
     protected void onUpdate() {
-        updatedAt = LocalDateTime.now();
+        updatedAt = Timestamp.valueOf(LocalDateTime.now());
         // 상태가 DONE으로 변경되면 완료 시간 기록
         if (status == TodoStatus.DONE && completedAt == null) {
             completedAt = LocalDateTime.now();

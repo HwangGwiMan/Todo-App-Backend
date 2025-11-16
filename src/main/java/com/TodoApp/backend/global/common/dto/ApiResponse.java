@@ -1,20 +1,30 @@
 package com.TodoApp.backend.global.common.dto;
 
 import com.fasterxml.jackson.annotation.JsonInclude;
+import io.swagger.v3.oas.annotations.media.Schema;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Data;
 import lombok.NoArgsConstructor;
+import org.springframework.lang.Nullable;
 
 @Data
 @NoArgsConstructor
 @AllArgsConstructor
 @Builder
 @JsonInclude(JsonInclude.Include.NON_NULL)
+@Schema(description = "API 공통 응답")
 public class ApiResponse<T> {
     
+    @Schema(description = "성공 여부", example = "true")
     private boolean success;
+    
+    @Schema(description = "메시지", example = "요청이 성공적으로 처리되었습니다", nullable = true, types = {"string", "null"})
+    @Nullable
     private String message;
+    
+    @Schema(description = "응답 데이터", nullable = true, types = {"object", "null"})
+    @Nullable
     private T data;
     
     // 성공 응답 (데이터 포함)
