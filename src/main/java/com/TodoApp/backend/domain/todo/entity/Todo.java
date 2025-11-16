@@ -1,10 +1,12 @@
 package com.TodoApp.backend.domain.todo.entity;
 
 import com.TodoApp.backend.domain.user.entity.User;
+import com.TodoApp.backend.global.entity.BaseEntity;
 import jakarta.persistence.*;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Data;
+import lombok.EqualsAndHashCode;
 import lombok.NoArgsConstructor;
 
 import java.sql.Timestamp;
@@ -13,14 +15,11 @@ import java.time.LocalDateTime;
 @Entity
 @Table(name = "todos")
 @Data
+@EqualsAndHashCode(callSuper = true)
 @NoArgsConstructor
 @AllArgsConstructor
 @Builder
-public class Todo {
-
-    @Id
-    @GeneratedValue(strategy = GenerationType.IDENTITY)
-    private Long id;
+public class Todo extends BaseEntity {
 
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "user_id", nullable = false)
@@ -54,16 +53,9 @@ public class Todo {
     @Column(name = "project_id")
     private Long projectId;
 
-    @Column(name = "created_at", nullable = false, updatable = false)
-    private Timestamp createdAt;
-
-    @Column(name = "updated_at", nullable = false)
-    private Timestamp updatedAt;
-
     @PrePersist
     protected void onCreate() {
-        createdAt = Timestamp.valueOf(LocalDateTime.now());
-        updatedAt = Timestamp.valueOf(LocalDateTime.now());
+        super.onCreate();
         if (status == null) {
             status = TodoStatus.TODO;
         }
@@ -74,7 +66,7 @@ public class Todo {
 
     @PreUpdate
     protected void onUpdate() {
-        updatedAt = Timestamp.valueOf(LocalDateTime.now());
+        super.onUpdate();
         // 상태가 DONE으로 변경되면 완료 시간 기록
         if (status == TodoStatus.DONE && completedAt == null) {
             completedAt = Timestamp.valueOf(LocalDateTime.now());
