@@ -208,7 +208,7 @@ GET /api/todos?status=TODO&priority=HIGH&sortBy=createdAt&sortDirection=DESC&pag
 
 ## 🎯 개발 진행 상황
 
-### ✅ Phase 1 완료 (2024)
+### ✅ Phase 1 완료 (2025년 11월)
 
 **구현 완료된 기능:**
 
@@ -403,6 +403,162 @@ spring.web.cors.allowed-origins=http://localhost:5173
 
 ### 쿼리 파라미터 파싱 오류
 Spring의 `@ModelAttribute`는 평면 쿼리 파라미터를 기대합니다. 프론트엔드에서 중첩 객체 형식(`searchRequest[page]=0`)이 아닌 평면 형식(`page=0`)으로 전달해야 합니다.
+
+## 🛡️ Null Safety 및 데이터 검증
+
+### Null 처리 전략
+
+이 프로젝트는 타입 안전성과 데이터 무결성을 보장하기 위해 체계적인 Null 처리 전략을 구현했습니다.
+
+#### 1. DTO에서의 Null 처리
+
+**TodoRequest.java**
+```java
+public class TodoRequest {
+    @NotBlank(message = "제목은 필수입니다")
+    private String title;  // 필수 필드
+    
+    @Nullable
+    @Schema(nullable = true, types = {"string", "null"})
+    private String description;  // 선택적 필드
+    
+    @Nullable
+    @Schema(nullable = true, types = {"string", "null"})
+    private Todo.TodoStatus status;  // 선택적 필드 (기본값: TODO)
+    
+    @Nullable
+    @Schema(nullable = true, types = {"string", "null"})
+    private Timestamp dueDate;  // 선택적 필드
+}
+```
+
+**TodoResponse.java**
+```java
+public class TodoResponse {
+    @Nullable
+    @Schema(nullable = true, types = {"integer", "null"})
+    private Long id;  // 생성 시에는 null
+    
+    private String title;  // 항상 존재
+    
+    @Nullable
+    @Schema(nullable = true, types = {"string", "null"})
+    private String description;  // null 가능
+    
+    @Nullable
+    @Schema(nullable = true, types = {"string", "null"})
+    private Timestamp completedAt;  // 완료되지 않은 경우 null
+}
+```
+
+#### 2. JPA 엔티티에서의 Null 제약
+
+**Todo.java**
+```java
+@Entity
+public class Todo {
+    @Column(nullable = false, length = 255)
+    private String title;  // NOT NULL 제약
+    
+    @Column(columnDefinition = "TEXT")
+    private String description;  // NULL 허용
+    
+    @Enumerated(EnumType.STRING)
+    @Column(nullable = false, length = 20)
+    private TodoStatus status;  // NOT NULL 제약
+    
+    @Column(name = "due_date")
+    private Timestamp dueDate;  // NULL 허용
+    
+    @Column(name = "completed_at")
+    private Timestamp completedAt;  // NULL 허용
+}
+```
+
+#### 3. 엔티티 생명주기에서의 Null 처리
+
+**@PrePersist와 @PreUpdate**
+```java
+@PrePersist
+protected void onCreate() {
+    createdAt = Timestamp.valueOf(LocalDateTime.now());
+    updatedAt = Timestamp.valueOf(LocalDateTime.now());
+    
+    // null인 경우 기본값 설정
+    if (status == null) {
+        status = TodoStatus.TODO;
+    }
+    if (priority == null) {
+        priority = Priority.MEDIUM;
+    }
+}
+
+@PreUpdate
+protected void onUpdate() {
+    updatedAt = Timestamp.valueOf(LocalDateTime.now());
+    
+    // 상태 변경에 따른 완료일 자동 관리
+    if (status == TodoStatus.DONE && completedAt == null) {
+        completedAt = Timestamp.valueOf(LocalDateTime.now());
+    }
+    if (status != TodoStatus.DONE && completedAt != null) {
+        completedAt = null;
+    }
+}
+```
+
+#### 4. OpenAPI 스키마 명세
+
+OpenAPI 스펙에서 nullable 필드를 명확히 정의:
+
+```java
+@Schema(
+    description = "TODO 설명", 
+    example = "JPA와 Security 챕터 복습", 
+    nullable = true,  // nullable 명시
+    types = {"string", "null"}  // 허용되는 타입 명시
+)
+@Nullable
+private String description;
+```
+
+#### 5. DTO 변환에서의 안전한 Null 처리
+
+**TodoResponse.from() 메서드**
+```java
+public static TodoResponse from(Todo todo) {
+    return TodoResponse.builder()
+            .id(todo.getId())
+            .title(todo.getTitle())
+            .description(todo.getDescription())  // null 가능
+            .status(todo.getStatus() != null ? todo.getStatus().name() : null)
+            .priority(todo.getPriority() != null ? todo.getPriority().name() : null)
+            .dueDate(todo.getDueDate())  // null 가능
+            .completedAt(todo.getCompletedAt())  // null 가능
+            .build();
+}
+```
+
+### Bean Validation 활용
+
+```java
+public class TodoRequest {
+    @NotBlank(message = "제목은 필수입니다")
+    @Size(max = 255, message = "제목은 255자 이하여야 합니다")
+    private String title;  // 필수 + 길이 제한
+    
+    @Nullable  // 명시적 null 허용
+    private String description;  // 선택적 필드
+}
+```
+
+### 장점
+
+1. **타입 안전성**: `@Nullable` 어노테이션으로 null 가능성 명시
+2. **API 문서화**: OpenAPI 스펙에서 nullable 필드 자동 문서화
+3. **데이터 무결성**: JPA 제약 조건으로 데이터베이스 레벨 보장
+4. **자동 처리**: 엔티티 생명주기에서 null 값 자동 관리
+5. **검증**: Bean Validation으로 요청 데이터 검증
 
 ## 🔄 Git 워크플로우
 
