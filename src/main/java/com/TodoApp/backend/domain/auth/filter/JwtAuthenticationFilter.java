@@ -56,6 +56,11 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
                 username = jwtUtil.extractUsername(jwt);
             } catch (Exception e) {
                 logger.error("JWT 토큰 파싱 실패: " + e.getMessage());
+                // 토큰 파싱 실패 시 401 응답 반환
+                response.setStatus(HttpServletResponse.SC_UNAUTHORIZED);
+                response.setContentType("application/json;charset=UTF-8");
+                response.getWriter().write("{\"success\":false,\"message\":\"유효하지 않은 토큰입니다.\"}");
+                return;
             }
         }
 
@@ -77,7 +82,19 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
                 
                 // SecurityContext에 인증 정보 설정
                 SecurityContextHolder.getContext().setAuthentication(authenticationToken);
+            } else {
+                // 토큰 유효성 검증 실패 시 401 응답 반환
+                response.setStatus(HttpServletResponse.SC_UNAUTHORIZED);
+                response.setContentType("application/json;charset=UTF-8");
+                response.getWriter().write("{\"success\":false,\"message\":\"토큰이 만료되었거나 유효하지 않습니다.\"}");
+                return;
             }
+        } else if (authorizationHeader != null && authorizationHeader.startsWith("Bearer ") && username == null) {
+            // Bearer 토큰이 있지만 username 추출 실패한 경우 (이미 위에서 처리되지만 안전장치)
+            response.setStatus(HttpServletResponse.SC_UNAUTHORIZED);
+            response.setContentType("application/json;charset=UTF-8");
+            response.getWriter().write("{\"success\":false,\"message\":\"유효하지 않은 토큰입니다.\"}");
+            return;
         }
         
         filterChain.doFilter(request, response);
