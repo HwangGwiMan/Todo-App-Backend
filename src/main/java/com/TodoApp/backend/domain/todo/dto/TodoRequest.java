@@ -10,7 +10,7 @@ import lombok.Data;
 import lombok.NoArgsConstructor;
 import org.springframework.lang.Nullable;
 
-import java.time.LocalDateTime;
+import java.sql.Timestamp;
 
 @Data
 @NoArgsConstructor
@@ -38,7 +38,7 @@ public class TodoRequest {
 
     @Schema(description = "마감일", example = "2025-12-31T23:59:59", nullable = true, types = {"string", "null"})
     @Nullable
-    private LocalDateTime dueDate;
+    private Timestamp dueDate;
 
     @Schema(description = "정렬 순서", example = "0")
     private Integer position;

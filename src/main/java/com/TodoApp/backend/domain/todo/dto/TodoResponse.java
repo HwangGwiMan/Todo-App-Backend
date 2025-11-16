@@ -44,11 +44,11 @@ public class TodoResponse {
 
     @Schema(description = "마감일", example = "2025-12-31T23:59:59", nullable = true, types = {"string", "null"})
     @Nullable
-    private LocalDateTime dueDate;
+    private Timestamp dueDate;
 
     @Schema(description = "완료일", example = "2025-11-10T14:30:00", nullable = true, types = {"string", "null"})
     @Nullable
-    private LocalDateTime completedAt;
+    private Timestamp completedAt;
 
     @Schema(description = "정렬 순서", example = "0")
     private Integer position;

@@ -41,10 +41,10 @@ public class Todo {
     private Priority priority;
 
     @Column(name = "due_date")
-    private LocalDateTime dueDate;
+    private Timestamp dueDate;
 
     @Column(name = "completed_at")
-    private LocalDateTime completedAt;
+    private Timestamp completedAt;
 
     @Column(nullable = false)
     @Builder.Default
@@ -77,7 +77,7 @@ public class Todo {
         updatedAt = Timestamp.valueOf(LocalDateTime.now());
         // 상태가 DONE으로 변경되면 완료 시간 기록
         if (status == TodoStatus.DONE && completedAt == null) {
-            completedAt = LocalDateTime.now();
+            completedAt = Timestamp.valueOf(LocalDateTime.now());
         }
         // DONE에서 다른 상태로 변경되면 완료 시간 제거
         if (status != TodoStatus.DONE && completedAt != null) {
