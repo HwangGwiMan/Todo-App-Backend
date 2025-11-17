@@ -68,33 +68,41 @@ public class TodoService {
      */
     public Page<TodoResponse> getTodos(Long userId, TodoSearchRequest searchRequest) {
         Pageable pageable = createPageable(searchRequest);
+        User user = userRepository.findById(userId)
+                .orElseThrow(() -> new RuntimeException("사용자를 찾을 수 없습니다."));
 
         Page<Todo> todos;
 
-        // 키워드 검색
-        if (searchRequest.getKeyword() != null && !searchRequest.getKeyword().isEmpty()) {
-            todos = todoRepository.searchByKeyword(userId, searchRequest.getKeyword(), pageable);
-        }
-        // 상태 필터
-        else if (searchRequest.getStatus() != null) {
-            todos = todoRepository.findByUserIdAndStatus(userId, searchRequest.getStatus(), pageable);
-        }
-        // 우선순위 필터
-        else if (searchRequest.getPriority() != null) {
-            todos = todoRepository.findByUserIdAndPriority(userId, searchRequest.getPriority(), pageable);
-        }
-        // 마감일 범위 필터
-        else if (searchRequest.getDueDateStart() != null && searchRequest.getDueDateEnd() != null) {
-            todos = todoRepository.findByUserIdAndDueDateBetween(
-                    userId,
-                    searchRequest.getDueDateStart(),
-                    searchRequest.getDueDateEnd(),
-                    pageable
-            );
-        }
-        // 전체 조회
-        else {
-            todos = todoRepository.findByUserId(userId, pageable);
+        // 프로젝트 필터 처리
+        if (searchRequest.getProjectId() != null) {
+            // 프로젝트별 TODO 조회
+            todos = todoRepository.findByUserAndProjectId(user, searchRequest.getProjectId(), pageable);
+        } else {
+            // 키워드 검색
+            if (searchRequest.getKeyword() != null && !searchRequest.getKeyword().isEmpty()) {
+                todos = todoRepository.searchByKeyword(userId, searchRequest.getKeyword(), pageable);
+            }
+            // 상태 필터
+            else if (searchRequest.getStatus() != null) {
+                todos = todoRepository.findByUserIdAndStatus(userId, searchRequest.getStatus(), pageable);
+            }
+            // 우선순위 필터
+            else if (searchRequest.getPriority() != null) {
+                todos = todoRepository.findByUserIdAndPriority(userId, searchRequest.getPriority(), pageable);
+            }
+            // 마감일 범위 필터
+            else if (searchRequest.getDueDateStart() != null && searchRequest.getDueDateEnd() != null) {
+                todos = todoRepository.findByUserIdAndDueDateBetween(
+                        userId,
+                        searchRequest.getDueDateStart(),
+                        searchRequest.getDueDateEnd(),
+                        pageable
+                );
+            }
+            // 전체 조회
+            else {
+                todos = todoRepository.findByUserId(userId, pageable);
+            }
         }
 
         return todos.map(TodoResponse::from);

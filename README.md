@@ -69,6 +69,19 @@ src/main/java/com/TodoApp/backend/
 │   │       ├── AuthService.java
 │   │       └── CustomUserDetailsService.java
 │   │
+│   ├── project/                     # 프로젝트 도메인 (Phase 2)
+│   │   ├── controller/
+│   │   │   └── ProjectController.java  # 프로젝트 API 컨트롤러
+│   │   ├── dto/
+│   │   │   ├── ProjectRequest.java
+│   │   │   └── ProjectResponse.java
+│   │   ├── entity/
+│   │   │   └── Project.java        # 프로젝트 엔티티
+│   │   ├── repository/
+│   │   │   └── ProjectRepository.java  # JPA 리포지토리
+│   │   └── service/
+│   │       └── ProjectService.java
+│   │
 │   ├── todo/                        # TODO 도메인
 │   │   ├── controller/
 │   │   │   └── TodoController.java  # TODO API 컨트롤러
@@ -131,7 +144,7 @@ src/main/java/com/TodoApp/backend/
 
 #### 보호된 엔드포인트
 
-모든 `/api/todos/**` 엔드포인트는 인증이 필요합니다.
+모든 `/api/todos/**` 및 `/api/projects/**` 엔드포인트는 인증이 필요합니다.
 
 ### JWT 설정
 
@@ -164,6 +177,17 @@ jwt.expiration=86400000  # 24시간 (밀리초)
 | DELETE | `/api/todos/{todoId}` | TODO 삭제 | ✅ |
 | GET | `/api/todos/stats` | 사용자 통계 조회 | ✅ |
 
+### 프로젝트 API (Phase 2)
+
+| Method | Endpoint | 설명 | 인증 필요 |
+|--------|----------|------|----------|
+| GET | `/api/projects` | 프로젝트 목록 조회 | ✅ |
+| GET | `/api/projects/{projectId}` | 프로젝트 상세 조회 | ✅ |
+| POST | `/api/projects` | 프로젝트 생성 | ✅ |
+| PUT | `/api/projects/{projectId}` | 프로젝트 수정 | ✅ |
+| DELETE | `/api/projects/{projectId}` | 프로젝트 삭제 | ✅ |
+| GET | `/api/projects/default` | 기본 프로젝트 조회 | ✅ |
+
 ### API 응답 형식
 
 모든 API는 공통 응답 형식을 사용합니다:
@@ -192,6 +216,7 @@ jwt.expiration=86400000  # 24시간 (밀리초)
 `GET /api/todos` 엔드포인트는 다음 쿼리 파라미터를 지원합니다:
 
 - `keyword`: 검색 키워드 (제목, 설명)
+- `projectId`: 프로젝트 ID 필터 (Phase 2)
 - `status`: 상태 필터 (TODO, IN_PROGRESS, DONE)
 - `priority`: 우선순위 필터 (HIGH, MEDIUM, LOW)
 - `sortBy`: 정렬 필드 (createdAt, dueDate, priority, position, title)
@@ -201,7 +226,7 @@ jwt.expiration=86400000  # 24시간 (밀리초)
 
 예시:
 ```
-GET /api/todos?status=TODO&priority=HIGH&sortBy=createdAt&sortDirection=DESC&page=0&size=20
+GET /api/todos?projectId=1&status=TODO&priority=HIGH&sortBy=createdAt&sortDirection=DESC&page=0&size=20
 ```
 
 **참고**: Spring의 `@ModelAttribute`는 평면 쿼리 파라미터를 기대합니다. 프론트엔드에서 중첩 객체(`searchRequest[page]=0`) 형식이 아닌 평면 형식(`page=0`)으로 전달해야 합니다.
@@ -252,14 +277,28 @@ GET /api/todos?status=TODO&priority=HIGH&sortBy=createdAt&sortDirection=DESC&pag
   - JPA/Hibernate 사용
   - 엔티티 관계 설정
 
-### 🚧 Phase 2 예정
+### ✅ Phase 2 완료 (2025년 11월)
+
+**구현 완료된 기능:**
+
+- [x] **프로젝트 기능**
+  - 프로젝트 엔티티 및 CRUD API
+  - 프로젝트별 TODO 그룹화 (`projectId` 필터)
+  - 기본 프로젝트 관리 (색상, 순서 등)
+  - 프로젝트 삭제 시 관련 TODO 처리
+
+- [x] **확장된 검색 및 필터링**
+  - 프로젝트 ID 필터링 지원
+  - TODO-프로젝트 연관 관계 구현
+
+- [x] **데이터 무결성**
+  - 프로젝트-TODO 관계 설정
+  - 기본 프로젝트 관리 로직
+  - CASCADE 처리 및 NULL 안전성
+
+### 🚧 Phase 3 예정
 
 **다음 단계 구현 예정:**
-
-- [ ] **프로젝트 기능**
-  - 프로젝트 엔티티 및 API
-  - 프로젝트별 TODO 그룹화
-  - 프로젝트 통계
 
 - [ ] **고급 검색 기능**
   - 날짜 범위 검색 (마감일)

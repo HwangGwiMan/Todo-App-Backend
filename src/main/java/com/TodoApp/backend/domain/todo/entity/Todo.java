@@ -53,9 +53,9 @@ public class Todo extends BaseEntity {
     @Column(name = "project_id")
     private Long projectId;
 
-    @PrePersist
+    @Override
     protected void onCreate() {
-        super.onCreate();
+        super.onCreate();  // BaseEntity의 onCreate() 호출
         if (status == null) {
             status = TodoStatus.TODO;
         }
@@ -63,10 +63,10 @@ public class Todo extends BaseEntity {
             priority = Priority.MEDIUM;
         }
     }
-
-    @PreUpdate
+    
+    @Override
     protected void onUpdate() {
-        super.onUpdate();
+        super.onUpdate();  // BaseEntity의 onUpdate() 호출
         // 상태가 DONE으로 변경되면 완료 시간 기록
         if (status == TodoStatus.DONE && completedAt == null) {
             completedAt = Timestamp.valueOf(LocalDateTime.now());
