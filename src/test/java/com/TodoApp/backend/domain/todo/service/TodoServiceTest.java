@@ -6,6 +6,8 @@ import com.TodoApp.backend.domain.todo.entity.Todo;
 import com.TodoApp.backend.domain.todo.repository.TodoRepository;
 import com.TodoApp.backend.domain.user.entity.User;
 import com.TodoApp.backend.domain.user.repository.UserRepository;
+import com.TodoApp.backend.fixture.TodoFixture;
+import com.TodoApp.backend.fixture.UserFixture;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -46,23 +48,9 @@ class TodoServiceTest {
 
     @BeforeEach
     void setUp() {
-        testUser = User.builder()
-                .username("testuser")
-                .email("test@example.com")
-                .password("password")
-                .role(User.Role.USER)
-                .build();
-        testUser.setId(1L);
-
-        testTodo = Todo.builder()
-                .user(testUser)
-                .title("테스트 TODO")
-                .description("테스트 설명")
-                .status(Todo.TodoStatus.TODO)
-                .priority(Todo.Priority.MEDIUM)
-                .position(0)
-                .build();
-        testTodo.setId(1L);
+        // Fixture를 사용하여 테스트 데이터 생성
+        testUser = UserFixture.aUser();
+        testTodo = TodoFixture.aTodoFor(testUser);
 
         todoRequest = TodoRequest.builder()
                 .title("새로운 TODO")
@@ -76,16 +64,20 @@ class TodoServiceTest {
     @DisplayName("TODO 생성 성공")
     void createTodo_성공() {
         // Given
-        when(userRepository.findById(1L)).thenReturn(Optional.of(testUser));
-        when(todoRepository.save(any(Todo.class))).thenReturn(testTodo);
+        when(userRepository.findById(testUser.getId())).thenReturn(Optional.of(testUser));
+        when(todoRepository.save(any(Todo.class))).thenAnswer(invocation -> {
+            Todo todo = invocation.getArgument(0);
+            todo.setId(testTodo.getId());
+            return todo;
+        });
 
         // When
-        var response = todoService.createTodo(1L, todoRequest);
+        var response = todoService.createTodo(testUser.getId(), todoRequest);
 
         // Then
         assertThat(response).isNotNull();
-        assertThat(response.getTitle()).isEqualTo("테스트 TODO");
-        verify(userRepository).findById(1L);
+        assertThat(response.getTitle()).isEqualTo(testTodo.getTitle());
+        verify(userRepository).findById(testUser.getId());
         verify(todoRepository).save(any(Todo.class));
     }
 
@@ -93,14 +85,15 @@ class TodoServiceTest {
     @DisplayName("TODO 생성 실패 - 사용자 없음")
     void createTodo_실패_사용자_없음() {
         // Given
-        when(userRepository.findById(1L)).thenReturn(Optional.empty());
+        Long nonExistentUserId = 999L;
+        when(userRepository.findById(nonExistentUserId)).thenReturn(Optional.empty());
 
         // When & Then
-        assertThatThrownBy(() -> todoService.createTodo(1L, todoRequest))
+        assertThatThrownBy(() -> todoService.createTodo(nonExistentUserId, todoRequest))
                 .isInstanceOf(RuntimeException.class)
                 .hasMessage("사용자를 찾을 수 없습니다.");
 
-        verify(userRepository).findById(1L);
+        verify(userRepository).findById(nonExistentUserId);
         verify(todoRepository, never()).save(any(Todo.class));
     }
 
@@ -108,15 +101,16 @@ class TodoServiceTest {
     @DisplayName("TODO 조회 성공")
     void getTodo_성공() {
         // Given
-        when(todoRepository.findByIdAndUserId(1L, 1L)).thenReturn(Optional.of(testTodo));
+        when(todoRepository.findByIdAndUserId(testTodo.getId(), testUser.getId()))
+                .thenReturn(Optional.of(testTodo));
 
         // When
-        var response = todoService.getTodo(1L, 1L);
+        var response = todoService.getTodo(testUser.getId(), testTodo.getId());
 
         // Then
         assertThat(response).isNotNull();
-        assertThat(response.getTitle()).isEqualTo("테스트 TODO");
-        verify(todoRepository).findByIdAndUserId(1L, 1L);
+        assertThat(response.getTitle()).isEqualTo(testTodo.getTitle());
+        verify(todoRepository).findByIdAndUserId(testTodo.getId(), testUser.getId());
     }
 
     @Test
@@ -144,18 +138,21 @@ class TodoServiceTest {
                 .sortDirection("DESC")
                 .build();
 
-        Page<Todo> todoPage = new PageImpl<>(Arrays.asList(testTodo));
-        when(userRepository.findById(1L)).thenReturn(Optional.of(testUser));
-        when(todoRepository.findByUserId(eq(1L), any(Pageable.class))).thenReturn(todoPage);
+        // Fixture를 사용하여 여러 Todo 생성
+        List<Todo> todos = TodoFixture.todosFor(testUser, 3);
+        Page<Todo> todoPage = new PageImpl<>(todos);
+        
+        when(userRepository.findById(testUser.getId())).thenReturn(Optional.of(testUser));
+        when(todoRepository.findByUserId(eq(testUser.getId()), any(Pageable.class))).thenReturn(todoPage);
 
         // When
-        Page<com.TodoApp.backend.domain.todo.dto.TodoResponse> response = todoService.getTodos(1L, searchRequest);
+        Page<com.TodoApp.backend.domain.todo.dto.TodoResponse> response = todoService.getTodos(testUser.getId(), searchRequest);
 
         // Then
         assertThat(response).isNotNull();
-        assertThat(response.getContent()).hasSize(1);
-        verify(userRepository).findById(1L);
-        verify(todoRepository).findByUserId(eq(1L), any(Pageable.class));
+        assertThat(response.getContent()).hasSize(3);
+        verify(userRepository).findById(testUser.getId());
+        verify(todoRepository).findByUserId(eq(testUser.getId()), any(Pageable.class));
     }
 
     @Test
