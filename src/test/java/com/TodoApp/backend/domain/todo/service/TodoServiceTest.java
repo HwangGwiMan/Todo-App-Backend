@@ -76,7 +76,7 @@ class TodoServiceTest {
 
         // Then
         assertThat(response).isNotNull();
-        assertThat(response.getTitle()).isEqualTo(testTodo.getTitle());
+        assertThat(response.getTitle()).isEqualTo("새로운 TODO"); // testTodo.getTitle() 대신 todoRequest의 제목 사용
         verify(userRepository).findById(testUser.getId());
         verify(todoRepository).save(any(Todo.class));
     }

@@ -142,7 +142,6 @@ class ProjectServiceTest {
         newProject.setId(2L);
 
         when(projectRepository.existsByUserAndName(testUser, "새로운 프로젝트")).thenReturn(false);
-        when(projectRepository.findMaxPositionByUser(testUser)).thenReturn(0);
         when(projectRepository.save(any(Project.class))).thenReturn(newProject);
 
         // When
