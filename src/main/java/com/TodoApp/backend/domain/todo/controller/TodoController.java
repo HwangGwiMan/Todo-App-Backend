@@ -97,5 +97,14 @@ public class TodoController {
         TodoService.TodoStatsResponse response = todoService.getUserStats(user.getId());
         return ResponseEntity.ok(ApiResponse.success(response));
     }
+
+    @GetMapping("/dashboard/stats")
+    @Operation(summary = "대시보드 통계 조회", description = "대시보드에 표시할 상세 통계를 조회합니다. 상태별, 우선순위별, 프로젝트별 통계를 포함합니다.")
+    public ResponseEntity<ApiResponse<com.TodoApp.backend.domain.todo.dto.TodoDashboardStatsResponse>> getDashboardStats(
+            @AuthenticationPrincipal User user
+    ) {
+        com.TodoApp.backend.domain.todo.dto.TodoDashboardStatsResponse response = todoService.getDashboardStats(user.getId());
+        return ResponseEntity.ok(ApiResponse.success(response));
+    }
 }
 
