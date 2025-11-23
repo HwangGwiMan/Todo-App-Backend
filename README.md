@@ -6,6 +6,12 @@ Spring Boot 3.5.7 + Java 17로 구축된 TodoApp 백엔드 API 서버입니다.
 
 이 프로젝트는 독립적인 Git 레포지토리로 관리됩니다. 프론트엔드와 별도로 버전 관리됩니다.
 
+## 📊 현재 개발 상태
+
+- ✅ **Phase 1 완료**: 인증 시스템, TODO CRUD, 검색/필터링/정렬, 페이징, 통계 API, API 문서화
+- ✅ **Phase 2 완료**: 프로젝트 관리, 프로젝트-TODO 연동, 기본 프로젝트 관리, 순서(position) 관리
+- 🚧 **Phase 3 예정**: 고급 검색 기능, TODO 복제/템플릿, 태그 시스템, 성능 최적화, 보안 강화
+
 ## 🚀 시작하기
 
 ### 사전 요구사항
@@ -69,7 +75,7 @@ src/main/java/com/TodoApp/backend/
 │   │       ├── AuthService.java
 │   │       └── CustomUserDetailsService.java
 │   │
-│   ├── project/                     # 프로젝트 도메인 (Phase 2)
+│   ├── project/                     # 프로젝트 도메인 ✅
 │   │   ├── controller/
 │   │   │   └── ProjectController.java  # 프로젝트 API 컨트롤러
 │   │   ├── dto/
@@ -177,7 +183,7 @@ jwt.expiration=86400000  # 24시간 (밀리초)
 | DELETE | `/api/todos/{todoId}` | TODO 삭제 | ✅ |
 | GET | `/api/todos/stats` | 사용자 통계 조회 | ✅ |
 
-### 프로젝트 API (Phase 2)
+### 프로젝트 API ✅
 
 | Method | Endpoint | 설명 | 인증 필요 |
 |--------|----------|------|----------|
@@ -216,7 +222,9 @@ jwt.expiration=86400000  # 24시간 (밀리초)
 `GET /api/todos` 엔드포인트는 다음 쿼리 파라미터를 지원합니다:
 
 - `keyword`: 검색 키워드 (제목, 설명)
-- `projectId`: 프로젝트 ID 필터 (Phase 2)
+- `projectId`: 프로젝트 ID 필터 ✅
+- `dueDateStart`: 마감일 시작 범위
+- `dueDateEnd`: 마감일 종료 범위
 - `status`: 상태 필터 (TODO, IN_PROGRESS, DONE)
 - `priority`: 우선순위 필터 (HIGH, MEDIUM, LOW)
 - `sortBy`: 정렬 필드 (createdAt, dueDate, priority, position, title)
@@ -226,7 +234,14 @@ jwt.expiration=86400000  # 24시간 (밀리초)
 
 예시:
 ```
+# 프로젝트별 TODO 조회
 GET /api/todos?projectId=1&status=TODO&priority=HIGH&sortBy=createdAt&sortDirection=DESC&page=0&size=20
+
+# 날짜 범위 검색
+GET /api/todos?dueDateStart=2025-01-01T00:00:00&dueDateEnd=2025-01-31T23:59:59
+
+# 키워드 검색
+GET /api/todos?keyword=회의&page=0&size=10
 ```
 
 **참고**: Spring의 `@ModelAttribute`는 평면 쿼리 파라미터를 기대합니다. 프론트엔드에서 중첩 객체(`searchRequest[page]=0`) 형식이 아닌 평면 형식(`page=0`)으로 전달해야 합니다.
@@ -238,10 +253,11 @@ GET /api/todos?projectId=1&status=TODO&priority=HIGH&sortBy=createdAt&sortDirect
 **구현 완료된 기능:**
 
 - [x] **인증 시스템**
-  - JWT 기반 인증
-  - 회원가입/로그인 API
-  - 인증 필터 및 보안 설정
-  - 사용자 정보 관리
+  - JWT 기반 인증 (jjwt 0.12.3)
+  - 회원가입/로그인 API (`POST /api/auth/signup`, `POST /api/auth/login`)
+  - JWT 인증 필터 (`JwtAuthenticationFilter`)
+  - Spring Security 통합
+  - 사용자 정보 관리 (User 엔티티, UserRepository)
 
 - [x] **TODO CRUD API**
   - TODO 생성 (`POST /api/todos`)
@@ -249,82 +265,121 @@ GET /api/todos?projectId=1&status=TODO&priority=HIGH&sortBy=createdAt&sortDirect
   - TODO 수정 (`PUT /api/todos/{id}`)
   - TODO 상태 변경 (`PATCH /api/todos/{id}/status`)
   - TODO 삭제 (`DELETE /api/todos/{id}`)
+  - 사용자별 권한 검증 (자신의 TODO만 접근 가능)
 
 - [x] **검색 및 필터링**
-  - 키워드 검색 (제목, 설명)
+  - 키워드 검색 (제목, 설명 LIKE 검색)
   - 상태 필터링 (TODO, IN_PROGRESS, DONE)
   - 우선순위 필터링 (HIGH, MEDIUM, LOW)
-  - 정렬 기능 (생성일, 마감일, 우선순위, 제목)
-  - 페이징 지원
+  - 프로젝트 ID 필터링 (Phase 2 통합)
+  - 정렬 기능 (생성일, 마감일, 우선순위, position, 제목)
+  - 정렬 방향 (ASC, DESC)
+  - 페이징 지원 (Spring Data Pageable)
 
 - [x] **통계 API**
   - 사용자별 TODO 통계 (`GET /api/todos/stats`)
   - 전체, 할 일, 진행중, 완료 개수
   - 완료율 계산
+  - 지난 마감일 TODO 개수
 
 - [x] **API 문서화**
-  - OpenAPI/Swagger 통합
-  - Swagger UI 제공
-  - API 스펙 자동 생성
+  - OpenAPI/Swagger 통합 (SpringDoc OpenAPI 2.8.9)
+  - Swagger UI 제공 (`/swagger-ui.html`)
+  - OpenAPI JSON 스펙 (`/api-docs`)
+  - API 스펙 자동 생성 및 프론트엔드 연동
 
 - [x] **예외 처리**
-  - 전역 예외 핸들러
-  - 공통 에러 응답 형식
-  - 유효성 검사
+  - 전역 예외 핸들러 (`GlobalExceptionHandler`)
+  - 공통 에러 응답 형식 (`ApiResponse`)
+  - Bean Validation 유효성 검사
+  - 사용자 친화적 에러 메시지
 
 - [x] **데이터베이스**
   - MariaDB 연동
   - JPA/Hibernate 사용
-  - 엔티티 관계 설정
+  - 엔티티 관계 설정 (User-Todo, User-Project)
+  - BaseEntity 공통 필드 (createdAt, updatedAt)
+  - NULL 안전성 보장
+
+- [x] **테스트**
+  - 단위 테스트 (TodoServiceTest, ProjectServiceTest, AuthServiceTest)
+  - 테스트 Fixture 시스템 (TodoFixture, ProjectFixture, UserFixture)
 
 ### ✅ Phase 2 완료 (2025년 11월)
 
 **구현 완료된 기능:**
 
-- [x] **프로젝트 기능**
+- [x] **프로젝트 관리**
   - 프로젝트 엔티티 및 CRUD API
+    - 프로젝트 목록 조회 (`GET /api/projects`)
+    - 프로젝트 상세 조회 (`GET /api/projects/{id}`)
+    - 프로젝트 생성 (`POST /api/projects`)
+    - 프로젝트 수정 (`PUT /api/projects/{id}`)
+    - 프로젝트 삭제 (`DELETE /api/projects/{id}`)
   - 프로젝트별 TODO 그룹화 (`projectId` 필터)
-  - 기본 프로젝트 관리 (색상, 순서 등)
-  - 프로젝트 삭제 시 관련 TODO 처리
+  - 기본 프로젝트 관리 (`GET /api/projects/default`)
+  - 프로젝트 색상 및 순서(position) 관리
+  - 프로젝트명 중복 검증
+  - 프로젝트 삭제 시 관련 TODO 처리 (projectId NULL 처리)
 
 - [x] **확장된 검색 및 필터링**
   - 프로젝트 ID 필터링 지원
   - TODO-프로젝트 연관 관계 구현
+  - 날짜 범위 검색 (dueDateStart, dueDateEnd) ✅
+
+- [x] **순서 관리**
+  - TODO position 필드 지원
+  - 프로젝트 position 필드 및 자동 정렬
+  - position 기반 정렬 기능
 
 - [x] **데이터 무결성**
   - 프로젝트-TODO 관계 설정
-  - 기본 프로젝트 관리 로직
+  - 기본 프로젝트 관리 로직 (단일 기본 프로젝트 보장)
   - CASCADE 처리 및 NULL 안전성
+  - 사용자별 데이터 격리
 
-### 🚧 Phase 3 예정
+### 🚧 Phase 3 진행 중 / 예정
+
+**현재 상태:**
+- [x] 날짜 범위 검색 구현 완료 (dueDateStart, dueDateEnd)
+- [x] position 필드 구현 완료 (순서 관리)
+- [ ] TODO 순서 변경 전용 API (현재는 PUT으로 position 업데이트 가능)
 
 **다음 단계 구현 예정:**
 
-- [ ] **고급 검색 기능**
-  - 날짜 범위 검색 (마감일)
-  - 복합 필터 조합
-  - 저장된 검색 조건
-
 - [ ] **TODO 고급 기능**
-  - TODO 순서 변경 (position)
-  - TODO 복제
-  - TODO 템플릿
-  - TODO 태그 기능
+  - TODO 순서 변경 전용 API (`PATCH /api/todos/{id}/position`)
+  - TODO 복제 API (`POST /api/todos/{id}/duplicate`)
+  - TODO 템플릿 기능
+  - TODO 태그 시스템 (다대다 관계)
+
+- [ ] **고급 검색 기능**
+  - 저장된 검색 조건
+  - 복합 필터 조합 최적화
+  - Full-text 검색 (MariaDB Full-text Index)
 
 - [ ] **성능 최적화**
-  - 쿼리 최적화
-  - 캐싱 전략
+  - 쿼리 최적화 (N+1 문제 해결, Fetch Join)
+  - 캐싱 전략 (Redis)
   - 인덱스 최적화
+  - 배치 처리
 
 - [ ] **보안 강화**
-  - 비밀번호 정책 강화
-  - Rate Limiting
-  - CSRF 보호
+  - 비밀번호 정책 강화 (최소 길이, 복잡도)
+  - Rate Limiting (Bucket4j 또는 Spring Security Rate Limiter)
+  - CSRF 보호 (필요 시)
+  - 입력 데이터 검증 강화
 
-- [ ] **테스트**
-  - 단위 테스트
-  - 통합 테스트
-  - API 테스트
+- [ ] **테스트 확대**
+  - 통합 테스트 (REST API 테스트)
+  - E2E 테스트
+  - 테스트 커버리지 목표: 70% 이상
+  - 성능 테스트
+
+- [ ] **모니터링 및 로깅**
+  - 구조화된 로깅 (JSON 형식)
+  - 에러 추적 (Sentry 등)
+  - 성능 모니터링 (APM)
 
 ## 🔧 설정
 
@@ -406,13 +461,57 @@ Swagger UI에서:
 
 ## 🧪 테스트
 
+### 테스트 구조
+
+프로젝트는 다음 테스트 구조를 가지고 있습니다:
+
+```
+src/test/java/com/TodoApp/backend/
+├── BackendApplicationTests.java      # 애플리케이션 컨텍스트 테스트
+├── domain/
+│   ├── auth/service/
+│   │   └── AuthServiceTest.java      # 인증 서비스 단위 테스트 ✅
+│   ├── project/service/
+│   │   └── ProjectServiceTest.java   # 프로젝트 서비스 단위 테스트 ✅
+│   └── todo/service/
+│       └── TodoServiceTest.java      # TODO 서비스 단위 테스트 ✅
+└── fixture/                          # 테스트 데이터 Fixture
+    ├── UserFixture.java
+    ├── TodoFixture.java
+    ├── ProjectFixture.java
+    └── core/                          # Fixture 핵심 유틸리티
+```
+
+### 테스트 실행
+
 ```bash
 # 모든 테스트 실행
 ./gradlew test
 
 # 특정 테스트 클래스 실행
 ./gradlew test --tests BackendApplicationTests
+./gradlew test --tests TodoServiceTest
+
+# 테스트 리포트 확인
+# build/reports/tests/test/index.html
 ```
+
+### 테스트 커버리지
+
+현재 구현된 테스트:
+- ✅ **AuthServiceTest**: 인증 서비스 로직 테스트
+- ✅ **TodoServiceTest**: TODO CRUD 및 검색 로직 테스트
+- ✅ **ProjectServiceTest**: 프로젝트 CRUD 로직 테스트
+
+**테스트 전략:**
+- 단위 테스트: Service 계층 핵심 로직
+- Mock 기반 테스트: Repository 의존성 모킹
+- Fixture 패턴: 테스트 데이터 생성 자동화
+
+**향후 계획:**
+- 통합 테스트 (REST API 테스트)
+- E2E 테스트
+- 테스트 커버리지 목표: 70% 이상
 
 ## 🐛 문제 해결
 
