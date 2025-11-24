@@ -1,5 +1,6 @@
 package com.TodoApp.backend.domain.todo.service;
 
+import com.TodoApp.backend.domain.todo.dto.TodoDashboardStatsResponse;
 import com.TodoApp.backend.domain.todo.dto.TodoRequest;
 import com.TodoApp.backend.domain.todo.dto.TodoSearchRequest;
 import com.TodoApp.backend.domain.todo.entity.Todo;
@@ -21,6 +22,7 @@ import org.springframework.data.domain.Pageable;
 
 import java.time.LocalDateTime;
 import java.util.Arrays;
+import java.util.Collections;
 import java.util.List;
 import java.util.Optional;
 
@@ -413,6 +415,128 @@ class TodoServiceTest {
         verify(todoRepository).countByUserIdAndStatus(1L, Todo.TodoStatus.IN_PROGRESS);
         verify(todoRepository).countByUserIdAndStatus(1L, Todo.TodoStatus.DONE);
         verify(todoRepository).findOverdueTodos(eq(1L), any(LocalDateTime.class));
+    }
+
+    @Test
+    @DisplayName("대시보드 통계 조회")
+    void getDashboardStats_통계_조회() {
+        // Given
+        Long userId = 1L;
+        long totalCount = 10L;
+        long todoCount = 5L;
+        long inProgressCount = 3L;
+        long doneCount = 2L;
+        List<Todo> overdueTodos = Arrays.asList(testTodo);
+        double expectedCompletionRate = 20.0; // (2 / 10) * 100
+
+        // 기본 통계 Mock 설정
+        when(todoRepository.countByUserId(userId)).thenReturn(totalCount);
+        when(todoRepository.countByUserIdAndStatus(userId, Todo.TodoStatus.TODO)).thenReturn(todoCount);
+        when(todoRepository.countByUserIdAndStatus(userId, Todo.TodoStatus.IN_PROGRESS)).thenReturn(inProgressCount);
+        when(todoRepository.countByUserIdAndStatus(userId, Todo.TodoStatus.DONE)).thenReturn(doneCount);
+        when(todoRepository.findOverdueTodos(eq(userId), any(LocalDateTime.class))).thenReturn(overdueTodos);
+
+        // 상태별 통계 Mock 설정
+        List<TodoDashboardStatsResponse.StatusStats> statusStats = Arrays.asList(
+                TodoDashboardStatsResponse.StatusStats.builder()
+                        .status("TODO")
+                        .count(5L)
+                        .percentage(50.0)
+                        .build(),
+                TodoDashboardStatsResponse.StatusStats.builder()
+                        .status("IN_PROGRESS")
+                        .count(3L)
+                        .percentage(30.0)
+                        .build(),
+                TodoDashboardStatsResponse.StatusStats.builder()
+                        .status("DONE")
+                        .count(2L)
+                        .percentage(20.0)
+                        .build()
+        );
+        when(todoRepository.findStatusStatsByUserId(userId, totalCount)).thenReturn(statusStats);
+
+        // 우선순위별 통계 Mock 설정
+        List<TodoDashboardStatsResponse.PriorityStats> priorityStats = Arrays.asList(
+                TodoDashboardStatsResponse.PriorityStats.builder()
+                        .priority("HIGH")
+                        .count(4L)
+                        .percentage(40.0)
+                        .build(),
+                TodoDashboardStatsResponse.PriorityStats.builder()
+                        .priority("MEDIUM")
+                        .count(4L)
+                        .percentage(40.0)
+                        .build(),
+                TodoDashboardStatsResponse.PriorityStats.builder()
+                        .priority("LOW")
+                        .count(2L)
+                        .percentage(20.0)
+                        .build()
+        );
+        when(todoRepository.findPriorityStatsByUserId(userId, totalCount)).thenReturn(priorityStats);
+
+        // 프로젝트별 통계 Mock 설정
+        List<TodoDashboardStatsResponse.ProjectStats> projectStats = Arrays.asList(
+                TodoDashboardStatsResponse.ProjectStats.builder()
+                        .projectId(1L)
+                        .projectName("프로젝트 1")
+                        .projectColor("#FF5733")
+                        .todoCount(6L)
+                        .percentage(60.0)
+                        .build(),
+                TodoDashboardStatsResponse.ProjectStats.builder()
+                        .projectId(null)
+                        .projectName("프로젝트 없음")
+                        .projectColor("#9CA3AF")
+                        .todoCount(4L)
+                        .percentage(40.0)
+                        .build()
+        );
+        when(todoRepository.findProjectStatsByUserId(userId, totalCount)).thenReturn(projectStats);
+
+        // When
+        var stats = todoService.getDashboardStats(userId);
+
+        // Then
+        assertThat(stats).isNotNull();
+        
+        // 기본 통계 검증
+        assertThat(stats.getBasicStats()).isNotNull();
+        assertThat(stats.getBasicStats().getTotalCount()).isEqualTo(totalCount);
+        assertThat(stats.getBasicStats().getTodoCount()).isEqualTo(todoCount);
+        assertThat(stats.getBasicStats().getInProgressCount()).isEqualTo(inProgressCount);
+        assertThat(stats.getBasicStats().getDoneCount()).isEqualTo(doneCount);
+        assertThat(stats.getBasicStats().getOverdueCount()).isEqualTo(1L);
+        assertThat(stats.getBasicStats().getCompletionRate()).isEqualTo(expectedCompletionRate);
+        
+        // 상태별 통계 검증
+        assertThat(stats.getStatusStats()).isNotNull();
+        assertThat(stats.getStatusStats()).hasSize(3);
+        assertThat(stats.getStatusStats().get(0).getStatus()).isEqualTo("TODO");
+        assertThat(stats.getStatusStats().get(0).getCount()).isEqualTo(5L);
+        
+        // 우선순위별 통계 검증
+        assertThat(stats.getPriorityStats()).isNotNull();
+        assertThat(stats.getPriorityStats()).hasSize(3);
+        assertThat(stats.getPriorityStats().get(0).getPriority()).isEqualTo("HIGH");
+        assertThat(stats.getPriorityStats().get(0).getCount()).isEqualTo(4L);
+        
+        // 프로젝트별 통계 검증
+        assertThat(stats.getProjectStats()).isNotNull();
+        assertThat(stats.getProjectStats()).hasSize(2);
+        assertThat(stats.getProjectStats().get(0).getProjectId()).isEqualTo(1L);
+        assertThat(stats.getProjectStats().get(0).getProjectName()).isEqualTo("프로젝트 1");
+
+        // Repository 메서드 호출 검증
+        verify(todoRepository).countByUserId(userId);
+        verify(todoRepository).countByUserIdAndStatus(userId, Todo.TodoStatus.TODO);
+        verify(todoRepository).countByUserIdAndStatus(userId, Todo.TodoStatus.IN_PROGRESS);
+        verify(todoRepository).countByUserIdAndStatus(userId, Todo.TodoStatus.DONE);
+        verify(todoRepository).findOverdueTodos(eq(userId), any(LocalDateTime.class));
+        verify(todoRepository).findStatusStatsByUserId(userId, totalCount);
+        verify(todoRepository).findPriorityStatsByUserId(userId, totalCount);
+        verify(todoRepository).findProjectStatsByUserId(userId, totalCount);
     }
 }
 
