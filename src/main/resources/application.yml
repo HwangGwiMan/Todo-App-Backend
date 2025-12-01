@@ -105,4 +105,3 @@ jwt:
 springdoc:
   swagger-ui:
     enabled: false # 보안을 위해 운영에서는 Swagger UI 비활성화 (필요 시 true)
-
