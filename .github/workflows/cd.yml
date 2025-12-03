@@ -66,10 +66,10 @@ jobs:
             cd /home/${{ secrets.EC2_USER }}/app
             
             # 백엔드 이미지 Pull
-            docker-compose pull backend
+            docker compose pull backend
             
             # 백엔드 컨테이너만 재시작
-            docker-compose up -d --no-deps backend
+            docker compose up -d --no-deps backend
             
             # 불필요한 이미지 정리
             docker image prune -f
