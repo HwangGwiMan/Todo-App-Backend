@@ -681,6 +681,26 @@ public byte[] generateExcel(Long userId, TodoSearchRequest searchRequest) {
 }
 ```
 
+#### 프론트엔드 연동 방식
+
+**버튼 및 모달 구조:**
+- 각 페이지에 "내보내기" 버튼 하나만 배치
+- 버튼 클릭 시 `ExportModal.vue` 팝업 표시
+- 모달에서 파일 형식 선택 (JSON / Excel / PDF)
+- 선택한 형식에 맞는 API 엔드포인트 호출
+
+```typescript
+// 프론트엔드 호출 예시
+const handleExport = async (format: 'json' | 'excel' | 'pdf') => {
+  const response = await fetch(`/api/todos/${todoId}/export/${format}`, {
+    headers: { 'Authorization': `Bearer ${token}` }
+  });
+  
+  const blob = await response.blob();
+  downloadFile(blob, `todo_${todoId}.${format === 'excel' ? 'xlsx' : format}`);
+}
+```
+
 #### 예상 전체 개발 기간
 
 - **JSON 출력**: 1-2시간
