@@ -381,6 +381,321 @@ GET /api/todos?keyword=회의&page=0&size=10
   - 에러 추적 (Sentry 등)
   - 성능 모니터링 (APM)
 
+### 📤 Phase 4 예정 - 파일 출력(Export) 기능
+
+**기능 개요:**
+TODO 및 프로젝트 데이터를 다양한 파일 형식으로 내보내기할 수 있는 기능 추가
+
+#### 지원 예정 파일 형식
+
+**1. JSON 출력 (우선순위: 높음)**
+- **구현 난이도**: ⭐ (낮음)
+- **예상 소요 시간**: 1-2시간
+- **필요 라이브러리**: 없음 (Spring Boot 기본 제공)
+- **API 엔드포인트 추가 예정**:
+  ```java
+  // TodoExportController.java (신규 생성)
+  
+  @GetMapping("/{todoId}/export/json")
+  public ResponseEntity<TodoResponse> exportTodoAsJson(
+      @AuthenticationPrincipal User user,
+      @PathVariable Long todoId
+  ) {
+      TodoResponse todo = todoService.getTodo(user.getId(), todoId);
+      
+      return ResponseEntity.ok()
+          .header(HttpHeaders.CONTENT_DISPOSITION, 
+                  "attachment; filename=todo_" + todoId + ".json")
+          .contentType(MediaType.APPLICATION_JSON)
+          .body(todo);
+  }
+  
+  @GetMapping("/export/json")
+  public ResponseEntity<List<TodoResponse>> exportTodosAsJson(
+      @AuthenticationPrincipal User user,
+      @ModelAttribute TodoSearchRequest searchRequest
+  ) {
+      Page<TodoResponse> todos = todoService.getTodos(user.getId(), searchRequest);
+      
+      return ResponseEntity.ok()
+          .header(HttpHeaders.CONTENT_DISPOSITION, 
+                  "attachment; filename=todos_" + LocalDate.now() + ".json")
+          .contentType(MediaType.APPLICATION_JSON)
+          .body(todos.getContent());
+  }
+  
+  @PostMapping("/export/json")
+  public ResponseEntity<List<TodoResponse>> exportSelectedTodosAsJson(
+      @AuthenticationPrincipal User user,
+      @RequestBody List<Long> todoIds
+  ) {
+      List<TodoResponse> todos = todoService.getTodosByIds(user.getId(), todoIds);
+      
+      return ResponseEntity.ok()
+          .header(HttpHeaders.CONTENT_DISPOSITION, 
+                  "attachment; filename=todos_selected_" + LocalDate.now() + ".json")
+          .contentType(MediaType.APPLICATION_JSON)
+          .body(todos);
+  }
+  ```
+
+**2. Excel 출력 (우선순위: 높음)**
+- **구현 난이도**: ⭐⭐ (중간)
+- **예상 소요 시간**: 3-4시간
+- **필요 라이브러리**: Apache POI
+  ```gradle
+  // build.gradle에 추가
+  implementation 'org.apache.poi:poi:5.2.5'
+  implementation 'org.apache.poi:poi-ooxml:5.2.5'
+  ```
+- **API 엔드포인트 추가 예정**:
+  ```java
+  @GetMapping("/export/excel")
+  public ResponseEntity<byte[]> exportTodosAsExcel(
+      @AuthenticationPrincipal User user,
+      @ModelAttribute TodoSearchRequest searchRequest
+  ) throws IOException {
+      Page<TodoResponse> todos = todoService.getTodos(user.getId(), searchRequest);
+      
+      Workbook workbook = new XSSFWorkbook();
+      Sheet sheet = workbook.createSheet("Todos");
+      
+      // 헤더 행 생성
+      Row headerRow = sheet.createRow(0);
+      String[] headers = {"ID", "제목", "설명", "상태", "우선순위", 
+                          "마감일", "생성일", "수정일", "완료일", "프로젝트"};
+      for (int i = 0; i < headers.length; i++) {
+          Cell cell = headerRow.createCell(i);
+          cell.setCellValue(headers[i]);
+          // 스타일링 적용 (굵게, 배경색 등)
+      }
+      
+      // 데이터 행 생성
+      int rowNum = 1;
+      for (TodoResponse todo : todos.getContent()) {
+          Row row = sheet.createRow(rowNum++);
+          row.createCell(0).setCellValue(todo.getId());
+          row.createCell(1).setCellValue(todo.getTitle());
+          row.createCell(2).setCellValue(todo.getDescription());
+          row.createCell(3).setCellValue(todo.getStatus());
+          row.createCell(4).setCellValue(todo.getPriority());
+          // ... 나머지 필드들
+      }
+      
+      // 열 너비 자동 조정
+      for (int i = 0; i < headers.length; i++) {
+          sheet.autoSizeColumn(i);
+      }
+      
+      ByteArrayOutputStream outputStream = new ByteArrayOutputStream();
+      workbook.write(outputStream);
+      workbook.close();
+      
+      return ResponseEntity.ok()
+          .header(HttpHeaders.CONTENT_DISPOSITION, 
+                  "attachment; filename=todos_" + LocalDate.now() + ".xlsx")
+          .contentType(MediaType.parseMediaType(
+                  "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"))
+          .body(outputStream.toByteArray());
+  }
+  ```
+- **Excel 스타일링**:
+  - 헤더 행: 굵게, 배경색 (회색)
+  - 상태별 색상 코딩 (TODO: 파랑, IN_PROGRESS: 주황, DONE: 초록)
+  - 우선순위별 색상 (HIGH: 빨강, MEDIUM: 노랑, LOW: 회색)
+
+**3. PDF 출력 (우선순위: 중간)**
+- **구현 난이도**: ⭐⭐⭐ (높음)
+- **예상 소요 시간**: 4-5시간
+- **필요 라이브러리**: iText7
+  ```gradle
+  // build.gradle에 추가
+  implementation 'com.itextpdf:itext7-core:7.2.5'
+  ```
+- **API 엔드포인트 추가 예정**:
+  ```java
+  @GetMapping("/{todoId}/export/pdf")
+  public ResponseEntity<byte[]> exportTodoAsPdf(
+      @AuthenticationPrincipal User user,
+      @PathVariable Long todoId
+  ) throws IOException {
+      TodoResponse todo = todoService.getTodo(user.getId(), todoId);
+      
+      ByteArrayOutputStream outputStream = new ByteArrayOutputStream();
+      PdfWriter writer = new PdfWriter(outputStream);
+      PdfDocument pdfDoc = new PdfDocument(writer);
+      Document document = new Document(pdfDoc);
+      
+      // 제목
+      document.add(new Paragraph(todo.getTitle())
+          .setFontSize(20)
+          .setBold());
+      
+      // 메타 정보
+      Table metaTable = new Table(2);
+      metaTable.addCell("상태");
+      metaTable.addCell(todo.getStatus());
+      metaTable.addCell("우선순위");
+      metaTable.addCell(todo.getPriority());
+      metaTable.addCell("마감일");
+      metaTable.addCell(todo.getDueDate() != null ? todo.getDueDate().toString() : "-");
+      metaTable.addCell("생성일");
+      metaTable.addCell(todo.getCreatedAt().toString());
+      document.add(metaTable);
+      
+      // 설명
+      document.add(new Paragraph("\n설명:").setBold());
+      document.add(new Paragraph(todo.getDescription() != null ? todo.getDescription() : "-"));
+      
+      document.close();
+      
+      return ResponseEntity.ok()
+          .header(HttpHeaders.CONTENT_DISPOSITION, 
+                  "attachment; filename=todo_" + todoId + ".pdf")
+          .contentType(MediaType.APPLICATION_PDF)
+          .body(outputStream.toByteArray());
+  }
+  ```
+
+#### 구현 계획
+
+**1단계: 기본 구조 및 JSON 출력 (1-2시간)**
+```
+domain/todo/
+├── controller/
+│   └── TodoExportController.java  (신규 생성)
+└── service/
+    └── TodoExportService.java     (신규 생성)
+
+domain/project/
+├── controller/
+│   └── ProjectExportController.java  (신규 생성)
+└── service/
+    └── ProjectExportService.java     (신규 생성)
+```
+
+**구현 내용:**
+- [ ] TodoExportController 생성
+- [ ] TodoExportService 생성
+- [ ] JSON 내보내기 엔드포인트 구현
+  - `GET /api/todos/{todoId}/export/json` - 단일 TODO
+  - `GET /api/todos/export/json` - 필터링된 목록
+  - `POST /api/todos/export/json` - 선택된 TODO 목록
+- [ ] ProjectExportController 생성
+- [ ] 프로젝트 JSON 내보내기 엔드포인트
+- [ ] Swagger/OpenAPI 문서화
+
+**2단계: Excel 출력 (3-4시간)**
+- [ ] Apache POI 라이브러리 추가 (build.gradle)
+- [ ] ExcelGeneratorService 유틸리티 클래스 생성
+- [ ] TODO 목록 Excel 생성 메소드 구현
+- [ ] Excel 스타일링 (헤더, 색상 코딩)
+- [ ] Excel 내보내기 엔드포인트 구현
+  - `GET /api/todos/export/excel`
+  - `GET /api/projects/{projectId}/export/excel`
+  - `POST /api/todos/export/excel`
+- [ ] 열 너비 자동 조정 및 최적화
+- [ ] Swagger 문서화
+
+**3단계: PDF 출력 (4-5시간)**
+- [ ] iText7 라이브러리 추가 (build.gradle)
+- [ ] PdfGeneratorService 유틸리티 클래스 생성
+- [ ] PDF 템플릿 디자인
+  - 헤더, 본문, 메타 정보 레이아웃
+  - 프로젝트 색상 반영
+- [ ] PDF 생성 메소드 구현
+- [ ] PDF 내보내기 엔드포인트 구현
+  - `GET /api/todos/{todoId}/export/pdf`
+  - `GET /api/projects/{projectId}/export/pdf`
+- [ ] Swagger 문서화
+
+#### 추가 고려사항
+
+**1. 보안**
+```java
+// TodoExportService.java
+
+public TodoResponse exportTodo(Long userId, Long todoId) {
+    Todo todo = todoRepository.findById(todoId)
+        .orElseThrow(() -> new IllegalArgumentException("TODO를 찾을 수 없습니다"));
+    
+    // 권한 검증 - 다른 사용자의 데이터 접근 방지
+    if (!todo.getUser().getId().equals(userId)) {
+        throw new AccessDeniedException("권한이 없습니다.");
+    }
+    
+    return TodoResponse.from(todo);
+}
+```
+
+**2. 파일명 커스터마이징**
+```java
+// 의미 있는 파일명 생성
+String filename = String.format("todos_%s_%s_%s.xlsx", 
+    user.getUsername(), 
+    LocalDate.now().format(DateTimeFormatter.ISO_DATE),
+    searchRequest.getStatus() != null ? searchRequest.getStatus() : "전체"
+);
+// 예: todos_홍길동_2025-12-07_진행중.xlsx
+```
+
+**3. 비동기 처리 (대용량 데이터)**
+```java
+@Service
+public class TodoExportService {
+    
+    @Async
+    public CompletableFuture<String> exportLargeTodoListAsync(
+            Long userId, 
+            TodoSearchRequest searchRequest
+    ) {
+        // 1. 대용량 데이터 조회 및 Excel 생성
+        // 2. S3 또는 파일 시스템에 저장
+        // 3. 다운로드 링크 생성
+        // 4. 이메일 전송 (선택)
+        
+        return CompletableFuture.completedFuture(downloadUrl);
+    }
+}
+```
+
+**4. Rate Limiting**
+```java
+// 과도한 내보내기 요청 제한
+@RateLimiter(name = "exportApi", fallbackMethod = "exportFallback")
+@GetMapping("/export/excel")
+public ResponseEntity<byte[]> exportTodosAsExcel(...) {
+    // 구현
+}
+```
+
+**5. 캐싱 전략**
+```java
+// 동일한 조건의 반복 요청 시 캐시 활용
+@Cacheable(
+    value = "todoExports", 
+    key = "#userId + '_' + #searchRequest.hashCode()"
+)
+public byte[] generateExcel(Long userId, TodoSearchRequest searchRequest) {
+    // Excel 생성 로직
+}
+```
+
+#### 예상 전체 개발 기간
+
+- **JSON 출력**: 1-2시간
+- **Excel 출력**: 3-4시간
+- **PDF 출력**: 4-5시간
+- **테스트 및 문서화**: 2-3시간
+- **총 예상 시간**: 10-14시간
+
+#### 참고 문서
+
+- [Apache POI 공식 문서](https://poi.apache.org/)
+- [iText7 공식 문서](https://itextpdf.com/en/products/itext-7)
+- [Spring Boot File Download 가이드](https://spring.io/guides/gs/uploading-files/)
+- [Spring @Async 문서](https://spring.io/guides/gs/async-method/)
+
 ## 🔧 설정
 
 ### application.properties
