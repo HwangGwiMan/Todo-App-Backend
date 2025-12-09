@@ -381,6 +381,700 @@ GET /api/todos?keyword=회의&page=0&size=10
   - 에러 추적 (Sentry 등)
   - 성능 모니터링 (APM)
 
+### 📅 Phase 5 예정 - TODO 일정 관리 및 알림 기능
+
+**기능 개요:**
+TODO에 상세한 일정 관리 필드를 추가하고, 카카오톡/SMS/이메일을 통한 알림 기능을 구현합니다.
+
+#### 1. TODO 엔티티 확장 - 일정 관리 필드
+
+**추가될 필드:**
+
+```java
+// Todo.java 엔티티에 추가할 필드들
+
+@Entity
+public class Todo {
+    // ... 기존 필드들 ...
+    
+    // === 일정 관련 필드 ===
+    
+    /**
+     * 일정 시작 일시 (선택)
+     * 시작 시간이 있는 TODO인 경우 사용
+     */
+    @Column(name = "start_date")
+    private Timestamp startDate;
+    
+    /**
+     * 일정 종료 일시 (선택)
+     * 종료 시간이 있는 TODO인 경우 사용 (기존 dueDate와 별개)
+     */
+    @Column(name = "end_date")
+    private Timestamp endDate;
+    
+    /**
+     * 종일 일정 여부
+     * true: 종일 일정 (시간 무시)
+     * false: 시간 포함 일정
+     */
+    @Column(name = "is_all_day", nullable = false)
+    private Boolean isAllDay = false;
+    
+    /**
+     * 반복 일정 설정 (JSON 형식)
+     * 예: {"type": "DAILY", "interval": 1, "endDate": "2025-12-31"}
+     * type: NONE, DAILY, WEEKLY, MONTHLY, YEARLY
+     * interval: 반복 간격 (예: 2일마다, 3주마다)
+     * daysOfWeek: 요일 선택 (주간 반복 시) [1-7, 월-일]
+     * dayOfMonth: 날짜 선택 (월간 반복 시) [1-31]
+     * endDate: 반복 종료일 (선택)
+     * count: 반복 횟수 (선택, endDate와 배타적)
+     */
+    @Column(name = "recurrence_rule", columnDefinition = "TEXT")
+    private String recurrenceRule;
+    
+    /**
+     * 원본 TODO ID (반복 일정의 경우)
+     * 반복 일정에서 생성된 개별 인스턴스는 이 필드로 원본을 참조
+     */
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "parent_todo_id")
+    private Todo parentTodo;
+    
+    /**
+     * 일정 위치 정보 (선택)
+     * 예: "서울시 강남구 테헤란로 123"
+     */
+    @Column(name = "location", length = 500)
+    private String location;
+    
+    /**
+     * 예상 소요 시간 (분 단위)
+     * 예: 30분, 120분 (2시간)
+     */
+    @Column(name = "estimated_duration")
+    private Integer estimatedDuration;
+    
+    // === 알림 관련 필드 ===
+    
+    /**
+     * 알림 설정 (JSON 배열 형식)
+     * 예: [{"type": "KAKAO", "timing": -30}, {"type": "SMS", "timing": -60}]
+     * type: EMAIL, SMS, KAKAO, PUSH
+     * timing: 알림 시간 (분 단위, 음수는 사전 알림)
+     *   -30: 30분 전
+     *   -60: 1시간 전
+     *   -1440: 1일 전
+     *   0: 정시
+     */
+    @Column(name = "notification_settings", columnDefinition = "TEXT")
+    private String notificationSettings;
+    
+    /**
+     * 알림 활성화 여부
+     */
+    @Column(name = "notification_enabled", nullable = false)
+    private Boolean notificationEnabled = false;
+}
+```
+
+**DTO 확장:**
+
+```java
+// TodoRequest.java
+public class TodoRequest {
+    // ... 기존 필드들 ...
+    
+    @Nullable
+    @Schema(nullable = true, description = "일정 시작 일시")
+    private Timestamp startDate;
+    
+    @Nullable
+    @Schema(nullable = true, description = "일정 종료 일시")
+    private Timestamp endDate;
+    
+    @Nullable
+    @Schema(nullable = true, description = "종일 일정 여부", defaultValue = "false")
+    private Boolean isAllDay;
+    
+    @Nullable
+    @Schema(nullable = true, description = "반복 설정 (JSON)")
+    private String recurrenceRule;
+    
+    @Nullable
+    @Schema(nullable = true, description = "일정 위치")
+    private String location;
+    
+    @Nullable
+    @Schema(nullable = true, description = "예상 소요 시간 (분)")
+    private Integer estimatedDuration;
+    
+    @Nullable
+    @Schema(nullable = true, description = "알림 설정 (JSON 배열)")
+    private String notificationSettings;
+    
+    @Nullable
+    @Schema(nullable = true, description = "알림 활성화 여부", defaultValue = "false")
+    private Boolean notificationEnabled;
+}
+
+// TodoResponse.java
+public class TodoResponse {
+    // ... 기존 필드들 ...
+    
+    private Timestamp startDate;
+    private Timestamp endDate;
+    private Boolean isAllDay;
+    private String recurrenceRule;
+    private String location;
+    private Integer estimatedDuration;
+    private String notificationSettings;
+    private Boolean notificationEnabled;
+    private Long parentTodoId;  // 반복 일정의 원본 ID
+}
+```
+
+#### 2. 알림 시스템 구조
+
+**새로운 도메인 패키지: notification**
+
+```
+domain/notification/
+├── controller/
+│   └── NotificationController.java     # 알림 테스트 및 설정 API
+├── dto/
+│   ├── NotificationRequest.java
+│   ├── NotificationSettingDto.java
+│   └── NotificationResponse.java
+├── entity/
+│   ├── NotificationLog.java            # 알림 발송 이력
+│   └── NotificationSetting.java        # 사용자별 알림 설정
+├── repository/
+│   ├── NotificationLogRepository.java
+│   └── NotificationSettingRepository.java
+├── service/
+│   ├── NotificationService.java        # 알림 관리 총괄
+│   ├── EmailNotificationService.java   # 이메일 알림
+│   ├── SmsNotificationService.java     # SMS 알림
+│   ├── KakaoNotificationService.java   # 카카오톡 알림톡
+│   └── PushNotificationService.java    # 브라우저 푸시 (선택)
+└── scheduler/
+    └── NotificationScheduler.java      # 알림 스케줄링 (Spring Scheduler)
+```
+
+**NotificationLog 엔티티:**
+
+```java
+@Entity
+@Table(name = "notification_logs")
+public class NotificationLog extends BaseEntity {
+    @Id
+    @GeneratedValue(strategy = GenerationType.IDENTITY)
+    private Long id;
+    
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "user_id", nullable = false)
+    private User user;
+    
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "todo_id", nullable = false)
+    private Todo todo;
+    
+    @Enumerated(EnumType.STRING)
+    @Column(nullable = false, length = 20)
+    private NotificationType type;  // EMAIL, SMS, KAKAO, PUSH
+    
+    @Column(nullable = false, length = 50)
+    private String status;  // PENDING, SENT, FAILED, CANCELLED
+    
+    @Column(name = "scheduled_time", nullable = false)
+    private Timestamp scheduledTime;  // 발송 예정 시간
+    
+    @Column(name = "sent_time")
+    private Timestamp sentTime;  // 실제 발송 시간
+    
+    @Column(name = "recipient", length = 255)
+    private String recipient;  // 수신자 정보 (이메일, 전화번호 등)
+    
+    @Column(name = "message", columnDefinition = "TEXT")
+    private String message;  // 발송된 메시지 내용
+    
+    @Column(name = "error_message", columnDefinition = "TEXT")
+    private String errorMessage;  // 실패 시 에러 메시지
+}
+```
+
+#### 3. 알림 서비스 구현 계획
+
+**3-1. 카카오톡 알림톡 (우선순위: 높음)**
+
+**필요 사항:**
+- 카카오 비즈니스 계정 등록
+- 알림톡 템플릿 승인 (카카오 검수 필요)
+- Kakao Notification API 연동
+
+**라이브러리:**
+```gradle
+// build.gradle
+implementation 'org.springframework.boot:spring-boot-starter-webflux'  // WebClient 사용
+```
+
+**구현 예시:**
+
+```java
+@Service
+@RequiredArgsConstructor
+public class KakaoNotificationService {
+    
+    private final WebClient kakaoWebClient;
+    
+    @Value("${kakao.api.key}")
+    private String kakaoApiKey;
+    
+    @Value("${kakao.sender.key}")
+    private String senderKey;
+    
+    /**
+     * 카카오톡 알림톡 발송
+     * 
+     * @param phoneNumber 수신자 전화번호 (010-1234-5678)
+     * @param templateCode 템플릿 코드 (카카오 승인된 템플릿)
+     * @param params 템플릿 변수 (Map)
+     */
+    public void sendKakaoNotification(
+        String phoneNumber, 
+        String templateCode,
+        Map<String, String> params
+    ) {
+        try {
+            String response = kakaoWebClient
+                .post()
+                .uri("/v2/api/send/ata/send")
+                .header("Authorization", "Bearer " + kakaoApiKey)
+                .contentType(MediaType.APPLICATION_JSON)
+                .bodyValue(Map.of(
+                    "senderKey", senderKey,
+                    "phoneNumber", phoneNumber.replace("-", ""),
+                    "templateCode", templateCode,
+                    "templateParameter", params
+                ))
+                .retrieve()
+                .bodyToMono(String.class)
+                .block();
+            
+            log.info("카카오톡 알림 발송 성공: {}", response);
+        } catch (Exception e) {
+            log.error("카카오톡 알림 발송 실패: {}", e.getMessage());
+            throw new RuntimeException("카카오톡 알림 발송 실패", e);
+        }
+    }
+    
+    /**
+     * TODO 알림 발송
+     */
+    public void sendTodoNotification(User user, Todo todo, int minutesBefore) {
+        String phoneNumber = user.getPhoneNumber();
+        
+        Map<String, String> params = new HashMap<>();
+        params.put("userName", user.getUsername());
+        params.put("todoTitle", todo.getTitle());
+        params.put("dueDate", formatDate(todo.getDueDate()));
+        params.put("timeUntil", formatTimeUntil(minutesBefore));
+        
+        // 템플릿 예시:
+        // [TodoApp 알림]
+        // #{userName}님, "#{todoTitle}" 할 일이 #{timeUntil} 남았습니다.
+        // 마감: #{dueDate}
+        
+        sendKakaoNotification(phoneNumber, "TODO_REMINDER", params);
+    }
+}
+```
+
+**3-2. SMS 문자 알림 (우선순위: 중간)**
+
+**SMS API 제공 업체 선택:**
+- NHN Cloud SMS (구 Toast Cloud)
+- Twilio
+- 알리고 (Aligo)
+- 솔라피 (Solapi)
+
+**구현 예시 (NHN Cloud SMS):**
+
+```java
+@Service
+@RequiredArgsConstructor
+public class SmsNotificationService {
+    
+    @Value("${nhn.sms.app-key}")
+    private String appKey;
+    
+    @Value("${nhn.sms.secret-key}")
+    private String secretKey;
+    
+    @Value("${nhn.sms.sender-number}")
+    private String senderNumber;
+    
+    private final RestTemplate restTemplate;
+    
+    public void sendSms(String recipient, String message) {
+        String url = "https://api-sms.cloud.toast.com/sms/v3.0/appKeys/" 
+                     + appKey + "/sender/sms";
+        
+        Map<String, Object> body = Map.of(
+            "body", message,
+            "sendNo", senderNumber,
+            "recipientList", List.of(Map.of("recipientNo", recipient))
+        );
+        
+        HttpHeaders headers = new HttpHeaders();
+        headers.setContentType(MediaType.APPLICATION_JSON);
+        headers.set("X-Secret-Key", secretKey);
+        
+        HttpEntity<Map<String, Object>> request = new HttpEntity<>(body, headers);
+        
+        try {
+            ResponseEntity<String> response = restTemplate.postForEntity(
+                url, request, String.class
+            );
+            log.info("SMS 발송 성공: {}", response.getBody());
+        } catch (Exception e) {
+            log.error("SMS 발송 실패: {}", e.getMessage());
+            throw new RuntimeException("SMS 발송 실패", e);
+        }
+    }
+    
+    public void sendTodoReminder(User user, Todo todo, int minutesBefore) {
+        String message = String.format(
+            "[TodoApp] %s님, \"%s\" 할 일이 %d분 후 마감됩니다.",
+            user.getUsername(),
+            todo.getTitle(),
+            minutesBefore
+        );
+        
+        sendSms(user.getPhoneNumber(), message);
+    }
+}
+```
+
+**3-3. 이메일 알림 (우선순위: 중간)**
+
+```java
+@Service
+@RequiredArgsConstructor
+public class EmailNotificationService {
+    
+    private final JavaMailSender mailSender;
+    
+    @Value("${spring.mail.from}")
+    private String fromEmail;
+    
+    public void sendEmail(String to, String subject, String body) {
+        try {
+            MimeMessage message = mailSender.createMimeMessage();
+            MimeMessageHelper helper = new MimeMessageHelper(message, true, "UTF-8");
+            
+            helper.setFrom(fromEmail);
+            helper.setTo(to);
+            helper.setSubject(subject);
+            helper.setText(body, true);  // HTML 지원
+            
+            mailSender.send(message);
+            log.info("이메일 발송 성공: {}", to);
+        } catch (Exception e) {
+            log.error("이메일 발송 실패: {}", e.getMessage());
+            throw new RuntimeException("이메일 발송 실패", e);
+        }
+    }
+    
+    public void sendTodoReminder(User user, Todo todo, int minutesBefore) {
+        String subject = "[TodoApp] TODO 알림: " + todo.getTitle();
+        String body = String.format("""
+            <html>
+            <body>
+                <h2>TODO 알림</h2>
+                <p>안녕하세요, %s님!</p>
+                <p>다음 할 일이 <strong>%d분 후</strong> 마감됩니다:</p>
+                <div style="padding: 15px; background: #f5f5f5; border-radius: 5px;">
+                    <h3>%s</h3>
+                    <p>%s</p>
+                    <p>마감: %s</p>
+                </div>
+            </body>
+            </html>
+            """,
+            user.getUsername(),
+            minutesBefore,
+            todo.getTitle(),
+            todo.getDescription() != null ? todo.getDescription() : "",
+            formatDate(todo.getDueDate())
+        );
+        
+        sendEmail(user.getEmail(), subject, body);
+    }
+}
+```
+
+#### 4. 알림 스케줄러 구현
+
+```java
+@Component
+@RequiredArgsConstructor
+@EnableScheduling
+public class NotificationScheduler {
+    
+    private final TodoRepository todoRepository;
+    private final NotificationLogRepository notificationLogRepository;
+    private final EmailNotificationService emailService;
+    private final SmsNotificationService smsService;
+    private final KakaoNotificationService kakaoService;
+    
+    /**
+     * 매 분마다 실행되어 알림이 필요한 TODO를 확인하고 알림 발송
+     */
+    @Scheduled(cron = "0 * * * * *")  // 매 분 0초에 실행
+    public void checkAndSendNotifications() {
+        LocalDateTime now = LocalDateTime.now();
+        LocalDateTime checkUntil = now.plusMinutes(60);  // 1시간 이내 알림 확인
+        
+        // 알림이 활성화되고 마감일이 다가오는 TODO 조회
+        List<Todo> upcomingTodos = todoRepository.findUpcomingTodosWithNotification(
+            Timestamp.valueOf(now), 
+            Timestamp.valueOf(checkUntil)
+        );
+        
+        for (Todo todo : upcomingTodos) {
+            try {
+                sendNotificationsForTodo(todo);
+            } catch (Exception e) {
+                log.error("알림 발송 실패 - TODO ID: {}, 에러: {}", 
+                    todo.getId(), e.getMessage());
+            }
+        }
+    }
+    
+    private void sendNotificationsForTodo(Todo todo) {
+        if (!todo.getNotificationEnabled() || 
+            todo.getNotificationSettings() == null) {
+            return;
+        }
+        
+        // JSON 파싱
+        List<NotificationSetting> settings = parseNotificationSettings(
+            todo.getNotificationSettings()
+        );
+        
+        for (NotificationSetting setting : settings) {
+            // 이미 발송된 알림인지 확인
+            if (isAlreadySent(todo, setting)) {
+                continue;
+            }
+            
+            // 알림 시간 계산
+            LocalDateTime notificationTime = calculateNotificationTime(
+                todo.getDueDate(), 
+                setting.getTiming()
+            );
+            
+            // 현재 시간이 알림 시간을 지났는지 확인
+            if (LocalDateTime.now().isAfter(notificationTime)) {
+                sendNotification(todo, setting);
+                logNotification(todo, setting, "SENT");
+            }
+        }
+    }
+    
+    private void sendNotification(Todo todo, NotificationSetting setting) {
+        User user = todo.getUser();
+        int minutesUntil = Math.abs(setting.getTiming());
+        
+        switch (setting.getType()) {
+            case EMAIL:
+                emailService.sendTodoReminder(user, todo, minutesUntil);
+                break;
+            case SMS:
+                smsService.sendTodoReminder(user, todo, minutesUntil);
+                break;
+            case KAKAO:
+                kakaoService.sendTodoNotification(user, todo, minutesUntil);
+                break;
+            case PUSH:
+                // 브라우저 푸시 알림 (선택)
+                break;
+        }
+    }
+}
+```
+
+#### 5. 반복 일정 처리
+
+```java
+@Service
+@RequiredArgsConstructor
+public class RecurrenceService {
+    
+    /**
+     * 반복 규칙에 따라 다음 발생 날짜 계산
+     */
+    public List<LocalDateTime> calculateOccurrences(
+        String recurrenceRule,
+        LocalDateTime startDate,
+        LocalDateTime endDate
+    ) {
+        RecurrenceRule rule = parseRecurrenceRule(recurrenceRule);
+        List<LocalDateTime> occurrences = new ArrayList<>();
+        
+        LocalDateTime current = startDate;
+        int count = 0;
+        
+        while (true) {
+            // 종료 조건 확인
+            if (rule.getEndDate() != null && current.isAfter(rule.getEndDate())) {
+                break;
+            }
+            if (rule.getCount() != null && count >= rule.getCount()) {
+                break;
+            }
+            if (endDate != null && current.isAfter(endDate)) {
+                break;
+            }
+            
+            occurrences.add(current);
+            count++;
+            
+            // 다음 발생 날짜 계산
+            current = getNextOccurrence(current, rule);
+        }
+        
+        return occurrences;
+    }
+    
+    private LocalDateTime getNextOccurrence(
+        LocalDateTime current, 
+        RecurrenceRule rule
+    ) {
+        return switch (rule.getType()) {
+            case DAILY -> current.plusDays(rule.getInterval());
+            case WEEKLY -> current.plusWeeks(rule.getInterval());
+            case MONTHLY -> current.plusMonths(rule.getInterval());
+            case YEARLY -> current.plusYears(rule.getInterval());
+            default -> current;
+        };
+    }
+}
+```
+
+#### 6. API 엔드포인트 추가
+
+| Method | Endpoint | 설명 | 인증 필요 |
+|--------|----------|------|----------|
+| GET | `/api/notifications/settings` | 사용자 알림 설정 조회 | ✅ |
+| PUT | `/api/notifications/settings` | 사용자 알림 설정 수정 | ✅ |
+| POST | `/api/notifications/test` | 테스트 알림 발송 | ✅ |
+| GET | `/api/notifications/logs` | 알림 발송 이력 조회 | ✅ |
+| GET | `/api/todos/{id}/recurrence` | 반복 일정 미리보기 | ✅ |
+
+#### 7. 환경 설정
+
+```yaml
+# application.yml에 추가
+
+# 카카오톡 알림톡 설정
+kakao:
+  api:
+    key: ${KAKAO_API_KEY}
+    url: https://kapi.kakao.com
+  sender:
+    key: ${KAKAO_SENDER_KEY}
+
+# SMS 설정 (NHN Cloud)
+nhn:
+  sms:
+    app-key: ${NHN_SMS_APP_KEY}
+    secret-key: ${NHN_SMS_SECRET_KEY}
+    sender-number: ${SMS_SENDER_NUMBER}
+
+# 이메일 설정
+spring:
+  mail:
+    host: smtp.gmail.com
+    port: 587
+    username: ${EMAIL_USERNAME}
+    password: ${EMAIL_PASSWORD}
+    from: ${EMAIL_FROM}
+    properties:
+      mail:
+        smtp:
+          auth: true
+          starttls:
+            enable: true
+
+# 스케줄러 설정
+scheduling:
+  enabled: true
+  notification:
+    check-interval: 60000  # 60초마다 확인
+```
+
+#### 8. 구현 우선순위 및 예상 시간
+
+**Phase 5-1: 일정 필드 확장 (4-5시간)**
+- [ ] Todo 엔티티 확장 (startDate, endDate, isAllDay 등)
+- [ ] DTO 및 매핑 로직 수정
+- [ ] 데이터베이스 마이그레이션 스크립트
+- [ ] API 문서 업데이트 (Swagger)
+
+**Phase 5-2: 이메일 알림 (3-4시간)**
+- [ ] JavaMailSender 설정
+- [ ] EmailNotificationService 구현
+- [ ] 이메일 템플릿 작성 (HTML)
+- [ ] 테스트 API 구현
+
+**Phase 5-3: 알림 스케줄러 (4-5시간)**
+- [ ] NotificationLog 엔티티 및 Repository
+- [ ] NotificationScheduler 구현
+- [ ] 알림 설정 파싱 로직
+- [ ] 중복 발송 방지 로직
+
+**Phase 5-4: SMS 알림 (3-4시간)**
+- [ ] SMS API 업체 선택 및 계정 생성
+- [ ] SmsNotificationService 구현
+- [ ] 테스트 및 에러 처리
+
+**Phase 5-5: 카카오톡 알림톡 (5-6시간)**
+- [ ] 카카오 비즈니스 계정 등록
+- [ ] 알림톡 템플릿 작성 및 승인 요청
+- [ ] KakaoNotificationService 구현
+- [ ] 테스트 및 에러 처리
+
+**Phase 5-6: 반복 일정 (6-8시간)**
+- [ ] RecurrenceService 구현
+- [ ] 반복 규칙 파싱 및 검증
+- [ ] 다음 발생 날짜 계산 로직
+- [ ] 반복 일정 미리보기 API
+
+**Phase 5-7: 사용자 알림 설정 (2-3시간)**
+- [ ] NotificationSetting 엔티티
+- [ ] 사용자별 알림 설정 CRUD API
+- [ ] 전역 알림 on/off 기능
+
+**총 예상 개발 시간: 27-35시간**
+
+#### 9. 테스트 계획
+
+- [ ] 단위 테스트: NotificationService, RecurrenceService
+- [ ] 통합 테스트: 알림 발송 플로우
+- [ ] 스케줄러 테스트: 시간대별 알림 발송
+- [ ] E2E 테스트: TODO 생성부터 알림 수신까지
+
+#### 10. 참고 문서
+
+- [Kakao Notification API 문서](https://developers.kakao.com/docs/latest/ko/message/rest-api)
+- [NHN Cloud SMS API 문서](https://docs.nhncloud.com/ko/Notification/SMS/ko/api-guide/)
+- [Spring Scheduler 가이드](https://spring.io/guides/gs/scheduling-tasks/)
+- [Spring Mail 가이드](https://docs.spring.io/spring-framework/reference/integration/email.html)
+
 ### 📤 Phase 4 예정 - 파일 출력(Export) 기능
 
 **기능 개요:**
