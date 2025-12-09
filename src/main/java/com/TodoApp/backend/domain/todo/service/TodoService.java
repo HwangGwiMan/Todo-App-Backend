@@ -8,10 +8,10 @@ import com.TodoApp.backend.domain.todo.entity.Todo;
 import com.TodoApp.backend.domain.todo.repository.TodoRepository;
 import com.TodoApp.backend.domain.user.entity.User;
 import com.TodoApp.backend.domain.user.repository.UserRepository;
+
+import lombok.NonNull;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import org.jooq.DSLContext;
-import org.jooq.impl.DSL;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
@@ -20,9 +20,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDateTime;
-import java.util.ArrayList;
 import java.util.List;
-import java.util.stream.Collectors;
 
 @Service
 @RequiredArgsConstructor
@@ -72,7 +70,7 @@ public class TodoService {
     /**
      * TODO 목록 조회 (검색, 필터링, 정렬, 페이징)
      */
-    public Page<TodoResponse> getTodos(Long userId, TodoSearchRequest searchRequest) {
+    public Page<TodoResponse> getTodos(@NonNull Long userId, TodoSearchRequest searchRequest) {
         Pageable pageable = createPageable(searchRequest);
         User user = userRepository.findById(userId)
                 .orElseThrow(() -> new RuntimeException("사용자를 찾을 수 없습니다."));
@@ -85,8 +83,9 @@ public class TodoService {
             todos = todoRepository.findByUserAndProjectId(user, searchRequest.getProjectId(), pageable);
         } else {
             // 키워드 검색
-            if (searchRequest.getKeyword() != null && !searchRequest.getKeyword().isEmpty()) {
-                todos = todoRepository.searchByKeyword(userId, searchRequest.getKeyword(), pageable);
+            String keyword = searchRequest.getKeyword();
+            if (keyword != null && !keyword.isEmpty()) {
+                todos = todoRepository.searchByKeyword(userId, keyword, pageable);
             }
             // 상태 필터
             else if (searchRequest.getStatus() != null) {
@@ -147,7 +146,6 @@ public class TodoService {
 
         Todo updatedTodo = todoRepository.save(todo);
         log.info("TODO 수정 완료: userId={}, todoId={}", userId, todoId);
-
         return TodoResponse.from(updatedTodo);
     }
 
