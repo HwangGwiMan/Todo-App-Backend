@@ -6,6 +6,8 @@ import com.TodoApp.backend.domain.project.entity.Project;
 import com.TodoApp.backend.domain.project.repository.ProjectRepository;
 import com.TodoApp.backend.domain.todo.repository.TodoRepository;
 import com.TodoApp.backend.domain.user.entity.User;
+import com.TodoApp.backend.global.exception.BusinessException;
+import com.TodoApp.backend.global.exception.ErrorCode;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -43,7 +45,7 @@ public class ProjectService {
      */
     public ProjectResponse getProject(Long projectId, User user) {
         Project project = projectRepository.findByIdAndUser(projectId, user)
-                .orElseThrow(() -> new IllegalArgumentException("프로젝트를 찾을 수 없습니다."));
+                .orElseThrow(() -> new BusinessException(ErrorCode.PROJECT_NOT_FOUND));
         
         Long todoCount = todoRepository.countByUserAndProjectId(user, projectId);
         return ProjectResponse.fromWithTodoCount(project, todoCount);
@@ -56,7 +58,7 @@ public class ProjectService {
     public ProjectResponse createProject(ProjectRequest request, User user) {
         // 프로젝트명 중복 체크
         if (projectRepository.existsByUserAndName(user, request.getName())) {
-            throw new IllegalArgumentException("이미 존재하는 프로젝트명입니다.");
+            throw new BusinessException(ErrorCode.PROJECT_NAME_DUPLICATE);
         }
 
         // 기본 프로젝트 설정 시 기존 기본 프로젝트 해제
@@ -93,11 +95,11 @@ public class ProjectService {
     @Transactional
     public ProjectResponse updateProject(Long projectId, ProjectRequest request, User user) {
         Project project = projectRepository.findByIdAndUser(projectId, user)
-                .orElseThrow(() -> new IllegalArgumentException("프로젝트를 찾을 수 없습니다."));
+                .orElseThrow(() -> new BusinessException(ErrorCode.PROJECT_NOT_FOUND));
 
         // 프로젝트명 중복 체크 (자신 제외)
         if (projectRepository.existsByUserAndNameExcludingId(user, request.getName(), projectId)) {
-            throw new IllegalArgumentException("이미 존재하는 프로젝트명입니다.");
+            throw new BusinessException(ErrorCode.PROJECT_NAME_DUPLICATE);
         }
 
         // 기본 프로젝트 설정 시 기존 기본 프로젝트 해제
@@ -134,11 +136,11 @@ public class ProjectService {
     @Transactional
     public void deleteProject(Long projectId, User user) {
         Project project = projectRepository.findByIdAndUser(projectId, user)
-                .orElseThrow(() -> new IllegalArgumentException("프로젝트를 찾을 수 없습니다."));
+                .orElseThrow(() -> new BusinessException(ErrorCode.PROJECT_NOT_FOUND));
 
         // 기본 프로젝트는 삭제할 수 없음
         if (Boolean.TRUE.equals(project.getIsDefault())) {
-            throw new IllegalArgumentException("기본 프로젝트는 삭제할 수 없습니다.");
+            throw new BusinessException(ErrorCode.DEFAULT_PROJECT_DELETE_NOT_ALLOWED);
         }
 
         // 프로젝트 내 모든 TODO의 projectId를 null로 변경
