@@ -112,12 +112,15 @@ src/main/java/com/TodoApp/backend/
     ├── common/
     │   └── dto/
     │       ├── ApiResponse.java     # 공통 API 응답 래퍼
+    │       ├── ErrorResponse.java   # 에러 응답 DTO ✅
     │       └── MessageResponse.java
     ├── config/
     │   ├── OpenApiConfig.java       # Swagger/OpenAPI 설정
     │   └── SecurityConfig.java     # Spring Security 설정
     ├── exception/
-    │   └── GlobalExceptionHandler.java  # 전역 예외 처리
+    │   ├── BusinessException.java   # 비즈니스 예외 클래스 ✅
+    │   ├── ErrorCode.java          # 에러 코드 enum ✅
+    │   └── GlobalExceptionHandler.java  # 전역 예외 처리 ✅
     └── security/
         └── JwtUtil.java            # JWT 유틸리티
 ```
@@ -288,11 +291,14 @@ GET /api/todos?keyword=회의&page=0&size=10
   - OpenAPI JSON 스펙 (`/api-docs`)
   - API 스펙 자동 생성 및 프론트엔드 연동
 
-- [x] **예외 처리**
+- [x] **예외 처리** ✅
   - 전역 예외 핸들러 (`GlobalExceptionHandler`)
-  - 공통 에러 응답 형식 (`ApiResponse`)
+  - 커스텀 예외 체계 (`BusinessException`, `ErrorCode`)
+  - 공통 에러 응답 형식 (`ErrorResponse`, `ApiResponse`)
   - Bean Validation 유효성 검사
   - 사용자 친화적 에러 메시지
+  - 도메인별 에러 코드 관리
+  - 자동 로깅 및 모니터링
 
 - [x] **데이터베이스**
   - MariaDB 연동
@@ -381,24 +387,20 @@ GET /api/todos?keyword=회의&page=0&size=10
   - 에러 추적 (Sentry 등)
   - 성능 모니터링 (APM)
 
-### 🏗️ Phase 4 예정 - 아키텍처 및 코드 품질 개선
+### 🏗️ Phase 4 진행 중 - 아키텍처 및 코드 품질 개선
 
 **기능 개요:**
 코드 유지보수성, 확장성, 성능을 향상시키기 위한 아키텍처 리팩토링 및 베스트 프랙티스 적용
 
 #### 우선순위: 높음 (필수)
 
-**1. 커스텀 예외 처리 체계 구축 (3-4시간)**
+**1. 커스텀 예외 처리 체계 구축 ✅ (완료)**
 
-**현재 문제:**
-- 모든 예외를 `RuntimeException` 또는 `IllegalArgumentException`으로 던지고 있음
-- `GlobalExceptionHandler`가 validation 예외만 처리 중
-- 클라이언트가 적절한 에러 응답을 받기 어려움
-
-**구현 계획:**
+**구현 완료 내용:**
 
 ```java
 // global/exception/BusinessException.java
+@Getter
 public class BusinessException extends RuntimeException {
     private final ErrorCode errorCode;
     
@@ -406,47 +408,103 @@ public class BusinessException extends RuntimeException {
         super(errorCode.getMessage());
         this.errorCode = errorCode;
     }
+    
+    public BusinessException(ErrorCode errorCode, String customMessage) {
+        super(customMessage);
+        this.errorCode = errorCode;
+    }
+    
+    public BusinessException(ErrorCode errorCode, Throwable cause) {
+        super(errorCode.getMessage(), cause);
+        this.errorCode = errorCode;
+    }
+    
+    public int getStatus() {
+        return errorCode.getStatus();
+    }
 }
 
 // global/exception/ErrorCode.java
 @Getter
 @RequiredArgsConstructor
 public enum ErrorCode {
-    // Common
+    // Common (공통)
     INTERNAL_SERVER_ERROR(500, "서버 오류가 발생했습니다."),
     INVALID_INPUT_VALUE(400, "잘못된 입력값입니다."),
     UNAUTHORIZED(401, "인증이 필요합니다."),
     FORBIDDEN(403, "권한이 없습니다."),
     
-    // User
+    // User (사용자)
     USER_NOT_FOUND(404, "사용자를 찾을 수 없습니다."),
     DUPLICATE_USERNAME(409, "이미 존재하는 사용자명입니다."),
+    INVALID_CREDENTIALS(401, "아이디 또는 비밀번호가 올바르지 않습니다."),
     
-    // Todo
+    // Todo (할 일)
     TODO_NOT_FOUND(404, "TODO를 찾을 수 없습니다."),
     TODO_ACCESS_DENIED(403, "TODO에 접근할 권한이 없습니다."),
     
-    // Project
+    // Project (프로젝트)
     PROJECT_NOT_FOUND(404, "프로젝트를 찾을 수 없습니다."),
+    PROJECT_ACCESS_DENIED(403, "프로젝트에 접근할 권한이 없습니다."),
     PROJECT_NAME_DUPLICATE(409, "이미 존재하는 프로젝트명입니다."),
-    DEFAULT_PROJECT_DELETE_NOT_ALLOWED(400, "기본 프로젝트는 삭제할 수 없습니다.");
+    DEFAULT_PROJECT_DELETE_NOT_ALLOWED(400, "기본 프로젝트는 삭제할 수 없습니다."),
+    DEFAULT_PROJECT_NOT_FOUND(404, "기본 프로젝트를 찾을 수 없습니다.");
     
     private final int status;
     private final String message;
 }
+
+// global/common/dto/ErrorResponse.java
+@Getter
+@Builder
+public class ErrorResponse {
+    private boolean success;
+    private int status;
+    private String message;
+    private String code;
+    private LocalDateTime timestamp;
+    
+    public static ErrorResponse of(ErrorCode errorCode) { ... }
+    public static ErrorResponse of(ErrorCode errorCode, String customMessage) { ... }
+    public static ErrorResponse of(int status, String message) { ... }
+}
 ```
 
-**체크리스트:**
-- [ ] `BusinessException` 클래스 생성
-- [ ] `ErrorCode` enum 정의 (모든 도메인 에러)
-- [ ] `GlobalExceptionHandler`에 예외 핸들러 추가
-  - `BusinessException` 핸들러
-  - `Exception` 전역 핸들러
-  - `AccessDeniedException` 핸들러
-- [ ] 모든 Service 클래스의 예외 코드 마이그레이션
-- [ ] 테스트 코드 업데이트
+**GlobalExceptionHandler 확장:**
+- ✅ `BusinessException` 핸들러 추가
+- ✅ `AccessDeniedException` 핸들러 추가 (Spring Security)
+- ✅ `IllegalArgumentException` 핸들러 추가
+- ✅ 전역 `Exception` 핸들러 추가
+- ✅ 로깅 기능 추가 (Slf4j)
+- ✅ 커스텀 예외 핸들러 추가 예시 주석 작성
 
-**예상 시간:** 3-4시간
+**Service 계층 마이그레이션 완료:**
+- ✅ `TodoService`: 모든 `RuntimeException` → `BusinessException` 변경
+- ✅ `ProjectService`: 모든 `IllegalArgumentException` → `BusinessException` 변경
+- ✅ `AuthService`: 인증 관련 예외 → `BusinessException` 변경
+
+**장점:**
+- ✅ 타입 안전성: ErrorCode enum으로 컴파일 타임 검증
+- ✅ 일관된 에러 응답: 모든 API가 동일한 에러 형식 반환
+- ✅ 명확한 에러 코드: 클라이언트가 에러를 쉽게 구분 가능
+- ✅ 유지보수성 향상: 에러 메시지 중앙 관리
+- ✅ 로깅 개선: 예외 발생 시 자동 로깅
+- ✅ 확장성: 새로운 에러 코드 추가가 간단함
+
+**체크리스트:**
+- [x] `BusinessException` 클래스 생성
+- [x] `ErrorCode` enum 정의 (모든 도메인 에러)
+- [x] `ErrorResponse` DTO 생성
+- [x] `GlobalExceptionHandler`에 예외 핸들러 추가
+  - [x] `BusinessException` 핸들러
+  - [x] `Exception` 전역 핸들러
+  - [x] `AccessDeniedException` 핸들러
+  - [x] `IllegalArgumentException` 핸들러
+- [x] 모든 Service 클래스의 예외 코드 마이그레이션
+- [x] 커스텀 예외 핸들러 추가 예시 주석 작성
+- [ ] 테스트 코드 업데이트 (향후 작업)
+
+**완료 시간:** 약 3시간
 
 ---
 
@@ -2459,6 +2517,199 @@ public class TodoRequest {
 3. **데이터 무결성**: JPA 제약 조건으로 데이터베이스 레벨 보장
 4. **자동 처리**: 엔티티 생명주기에서 null 값 자동 관리
 5. **검증**: Bean Validation으로 요청 데이터 검증
+
+## 🚨 예외 처리 시스템
+
+### 커스텀 예외 처리 체계 ✅
+
+프로젝트는 체계적인 예외 처리 시스템을 구축하여 일관된 에러 응답과 명확한 에러 코드를 제공합니다.
+
+#### 1. ErrorCode Enum
+
+모든 도메인별 에러 코드를 중앙에서 관리합니다.
+
+```java
+// global/exception/ErrorCode.java
+@Getter
+@RequiredArgsConstructor
+public enum ErrorCode {
+    // Common (공통)
+    INTERNAL_SERVER_ERROR(500, "서버 오류가 발생했습니다."),
+    INVALID_INPUT_VALUE(400, "잘못된 입력값입니다."),
+    UNAUTHORIZED(401, "인증이 필요합니다."),
+    FORBIDDEN(403, "권한이 없습니다."),
+    
+    // User (사용자)
+    USER_NOT_FOUND(404, "사용자를 찾을 수 없습니다."),
+    DUPLICATE_USERNAME(409, "이미 존재하는 사용자명입니다."),
+    
+    // Todo (할 일)
+    TODO_NOT_FOUND(404, "TODO를 찾을 수 없습니다."),
+    TODO_ACCESS_DENIED(403, "TODO에 접근할 권한이 없습니다."),
+    
+    // Project (프로젝트)
+    PROJECT_NOT_FOUND(404, "프로젝트를 찾을 수 없습니다."),
+    PROJECT_NAME_DUPLICATE(409, "이미 존재하는 프로젝트명입니다."),
+    DEFAULT_PROJECT_DELETE_NOT_ALLOWED(400, "기본 프로젝트는 삭제할 수 없습니다.");
+    
+    private final int status;
+    private final String message;
+}
+```
+
+#### 2. BusinessException
+
+비즈니스 로직 예외를 위한 커스텀 예외 클래스입니다.
+
+```java
+// global/exception/BusinessException.java
+@Getter
+public class BusinessException extends RuntimeException {
+    private final ErrorCode errorCode;
+    
+    public BusinessException(ErrorCode errorCode) {
+        super(errorCode.getMessage());
+        this.errorCode = errorCode;
+    }
+    
+    public BusinessException(ErrorCode errorCode, String customMessage) {
+        super(customMessage);
+        this.errorCode = errorCode;
+    }
+}
+```
+
+#### 3. ErrorResponse DTO
+
+일관된 에러 응답 형식을 제공합니다.
+
+```java
+// global/common/dto/ErrorResponse.java
+@Getter
+@Builder
+public class ErrorResponse {
+    private boolean success;      // 항상 false
+    private int status;           // HTTP 상태 코드
+    private String message;       // 에러 메시지
+    private String code;          // 에러 코드 (enum 이름)
+    private LocalDateTime timestamp;  // 발생 시각
+}
+```
+
+**에러 응답 예시:**
+```json
+{
+  "success": false,
+  "status": 404,
+  "message": "TODO를 찾을 수 없습니다.",
+  "code": "TODO_NOT_FOUND",
+  "timestamp": "2025-12-12T10:30:00"
+}
+```
+
+#### 4. GlobalExceptionHandler
+
+모든 예외를 전역에서 처리합니다.
+
+```java
+@Slf4j
+@RestControllerAdvice
+public class GlobalExceptionHandler {
+    
+    // 비즈니스 예외 처리
+    @ExceptionHandler(BusinessException.class)
+    public ResponseEntity<ErrorResponse> handleBusinessException(BusinessException ex) {
+        log.warn("Business exception: code={}, message={}", ex.getErrorCode(), ex.getMessage());
+        ErrorResponse errorResponse = ErrorResponse.of(ex.getErrorCode());
+        return ResponseEntity.status(ex.getStatus()).body(errorResponse);
+    }
+    
+    // Bean Validation 예외 처리
+    @ExceptionHandler(MethodArgumentNotValidException.class)
+    public ResponseEntity<ApiResponse<Map<String, String>>> handleValidationExceptions(...) {
+        // 필드별 검증 에러 처리
+    }
+    
+    // Spring Security 접근 거부 예외
+    @ExceptionHandler(AccessDeniedException.class)
+    public ResponseEntity<ErrorResponse> handleAccessDeniedException(...) {
+        // 403 Forbidden 처리
+    }
+    
+    // 전역 예외 처리 (최종 방어선)
+    @ExceptionHandler(Exception.class)
+    public ResponseEntity<ErrorResponse> handleException(Exception ex) {
+        log.error("Unexpected error occurred", ex);
+        return ResponseEntity.status(500).body(ErrorResponse.of(ErrorCode.INTERNAL_SERVER_ERROR));
+    }
+}
+```
+
+#### 5. Service 계층에서의 사용
+
+```java
+// TodoService.java
+public TodoResponse getTodo(Long userId, Long todoId) {
+    Todo todo = todoRepository.findByIdAndUserId(todoId, userId)
+            .orElseThrow(() -> new BusinessException(ErrorCode.TODO_NOT_FOUND));
+    return TodoResponse.from(todo);
+}
+
+// AuthService.java
+public AuthResponse signup(SignupRequest request) {
+    if (userRepository.existsByUsername(request.getUsername())) {
+        throw new BusinessException(ErrorCode.DUPLICATE_USERNAME);
+    }
+    // 회원가입 로직...
+}
+
+// ProjectService.java
+public void deleteProject(Long projectId, User user) {
+    Project project = projectRepository.findByIdAndUser(projectId, user)
+            .orElseThrow(() -> new BusinessException(ErrorCode.PROJECT_NOT_FOUND));
+    
+    if (Boolean.TRUE.equals(project.getIsDefault())) {
+        throw new BusinessException(ErrorCode.DEFAULT_PROJECT_DELETE_NOT_ALLOWED);
+    }
+    // 삭제 로직...
+}
+```
+
+#### 6. 새로운 예외 추가 방법
+
+**Step 1: ErrorCode에 추가**
+```java
+// ErrorCode.java
+FILE_UPLOAD_FAILED(400, "파일 업로드에 실패했습니다."),
+FILE_SIZE_EXCEEDED(413, "파일 크기가 제한을 초과했습니다."),
+```
+
+**Step 2: Service에서 사용**
+```java
+if (file.getSize() > MAX_FILE_SIZE) {
+    throw new BusinessException(ErrorCode.FILE_SIZE_EXCEEDED);
+}
+```
+
+**Step 3: (선택) 특정 예외 핸들러 추가**
+```java
+// GlobalExceptionHandler.java
+@ExceptionHandler(MaxUploadSizeExceededException.class)
+public ResponseEntity<ErrorResponse> handleFileSizeException(Exception ex) {
+    ErrorResponse errorResponse = ErrorResponse.of(ErrorCode.FILE_SIZE_EXCEEDED);
+    return ResponseEntity.status(HttpStatus.PAYLOAD_TOO_LARGE).body(errorResponse);
+}
+```
+
+### 예외 처리 시스템의 장점
+
+✅ **타입 안전성**: ErrorCode enum으로 컴파일 타임 검증  
+✅ **일관성**: 모든 API가 동일한 에러 형식 반환  
+✅ **명확성**: 에러 코드로 클라이언트가 에러를 쉽게 구분  
+✅ **유지보수성**: 에러 메시지 중앙 관리  
+✅ **로깅**: 예외 발생 시 자동 로깅  
+✅ **확장성**: 새로운 에러 코드 추가가 간단함  
+✅ **국제화 지원**: 에러 코드 기반으로 다국어 메시지 제공 가능
 
 ## 🔄 Git 워크플로우
 
