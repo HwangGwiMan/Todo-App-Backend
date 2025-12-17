@@ -13,6 +13,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.util.List;
+import java.util.Map;
 import java.util.stream.Collectors;
 
 /**
@@ -28,13 +29,25 @@ public class ProjectService {
 
     /**
      * 사용자별 프로젝트 목록 조회
+     * N+1 문제 해결: 모든 프로젝트의 TODO 개수를 한 번의 쿼리로 조회
      */
     public List<ProjectResponse> getProjectsByUser(User user) {
+        // 1. 사용자의 모든 프로젝트 조회 (1 query)
         List<Project> projects = projectRepository.findByUserOrderByPositionAscCreatedAtAsc(user);
         
+        // 2. 사용자의 모든 TODO를 프로젝트별로 그룹화하여 개수 조회 (1 query)
+        Map<Long, Long> todoCountMap = todoRepository
+                .countByUserGroupByProjectId(user.getId())
+                .stream()
+                .collect(Collectors.toMap(
+                        result -> result.getProjectId(),
+                        result -> result.getCount()
+                ));
+        
+        // 3. 프로젝트와 TODO 개수 매핑 (메모리 작업)
         return projects.stream()
                 .map(project -> {
-                    Long todoCount = todoRepository.countByUserAndProjectId(user, project.getId());
+                    Long todoCount = todoCountMap.getOrDefault(project.getId(), 0L);
                     return ProjectResponse.fromWithTodoCount(project, todoCount);
                 })
                 .collect(Collectors.toList());
