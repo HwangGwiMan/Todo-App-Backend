@@ -8,10 +8,12 @@ import com.TodoApp.backend.domain.todo.entity.Todo;
 import com.TodoApp.backend.domain.todo.repository.TodoRepository;
 import com.TodoApp.backend.domain.user.entity.User;
 import com.TodoApp.backend.domain.user.repository.UserRepository;
+import com.TodoApp.backend.global.exception.BusinessException;
+import com.TodoApp.backend.global.exception.ErrorCode;
+
+import lombok.NonNull;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import org.jooq.DSLContext;
-import org.jooq.impl.DSL;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
@@ -20,9 +22,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDateTime;
-import java.util.ArrayList;
 import java.util.List;
-import java.util.stream.Collectors;
 
 @Service
 @RequiredArgsConstructor
@@ -40,7 +40,7 @@ public class TodoService {
     @Transactional
     public TodoResponse createTodo(Long userId, TodoRequest request) {
         User user = userRepository.findById(userId)
-                .orElseThrow(() -> new RuntimeException("사용자를 찾을 수 없습니다."));
+                .orElseThrow(() -> new BusinessException(ErrorCode.USER_NOT_FOUND));
 
         Todo todo = Todo.builder()
                 .user(user)
@@ -64,7 +64,7 @@ public class TodoService {
      */
     public TodoResponse getTodo(Long userId, Long todoId) {
         Todo todo = todoRepository.findByIdAndUserId(todoId, userId)
-                .orElseThrow(() -> new RuntimeException("TODO를 찾을 수 없거나 권한이 없습니다."));
+                .orElseThrow(() -> new BusinessException(ErrorCode.TODO_NOT_FOUND));
 
         return TodoResponse.from(todo);
     }
@@ -72,10 +72,10 @@ public class TodoService {
     /**
      * TODO 목록 조회 (검색, 필터링, 정렬, 페이징)
      */
-    public Page<TodoResponse> getTodos(Long userId, TodoSearchRequest searchRequest) {
+    public Page<TodoResponse> getTodos(@NonNull Long userId, TodoSearchRequest searchRequest) {
         Pageable pageable = createPageable(searchRequest);
         User user = userRepository.findById(userId)
-                .orElseThrow(() -> new RuntimeException("사용자를 찾을 수 없습니다."));
+                .orElseThrow(() -> new BusinessException(ErrorCode.USER_NOT_FOUND));
 
         Page<Todo> todos;
 
@@ -85,8 +85,9 @@ public class TodoService {
             todos = todoRepository.findByUserAndProjectId(user, searchRequest.getProjectId(), pageable);
         } else {
             // 키워드 검색
-            if (searchRequest.getKeyword() != null && !searchRequest.getKeyword().isEmpty()) {
-                todos = todoRepository.searchByKeyword(userId, searchRequest.getKeyword(), pageable);
+            String keyword = searchRequest.getKeyword();
+            if (keyword != null && !keyword.isEmpty()) {
+                todos = todoRepository.searchByKeyword(userId, keyword, pageable);
             }
             // 상태 필터
             else if (searchRequest.getStatus() != null) {
@@ -120,7 +121,7 @@ public class TodoService {
     @Transactional
     public TodoResponse updateTodo(Long userId, Long todoId, TodoRequest request) {
         Todo todo = todoRepository.findByIdAndUserId(todoId, userId)
-                .orElseThrow(() -> new RuntimeException("TODO를 찾을 수 없거나 권한이 없습니다."));
+                .orElseThrow(() -> new BusinessException(ErrorCode.TODO_NOT_FOUND));
 
         // 수정 가능한 필드 업데이트
         if (request.getTitle() != null) {
@@ -147,7 +148,6 @@ public class TodoService {
 
         Todo updatedTodo = todoRepository.save(todo);
         log.info("TODO 수정 완료: userId={}, todoId={}", userId, todoId);
-
         return TodoResponse.from(updatedTodo);
     }
 
@@ -157,7 +157,7 @@ public class TodoService {
     @Transactional
     public TodoResponse updateTodoStatus(Long userId, Long todoId, Todo.TodoStatus status) {
         Todo todo = todoRepository.findByIdAndUserId(todoId, userId)
-                .orElseThrow(() -> new RuntimeException("TODO를 찾을 수 없거나 권한이 없습니다."));
+                .orElseThrow(() -> new BusinessException(ErrorCode.TODO_NOT_FOUND));
 
         todo.setStatus(status);
         Todo updatedTodo = todoRepository.save(todo);
@@ -172,7 +172,7 @@ public class TodoService {
     @Transactional
     public void deleteTodo(Long userId, Long todoId) {
         Todo todo = todoRepository.findByIdAndUserId(todoId, userId)
-                .orElseThrow(() -> new RuntimeException("TODO를 찾을 수 없거나 권한이 없습니다."));
+                .orElseThrow(() -> new BusinessException(ErrorCode.TODO_NOT_FOUND));
 
         todoRepository.delete(todo);
         log.info("TODO 삭제 완료: userId={}, todoId={}", userId, todoId);

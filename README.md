@@ -112,12 +112,15 @@ src/main/java/com/TodoApp/backend/
     ├── common/
     │   └── dto/
     │       ├── ApiResponse.java     # 공통 API 응답 래퍼
+    │       ├── ErrorResponse.java   # 에러 응답 DTO ✅
     │       └── MessageResponse.java
     ├── config/
     │   ├── OpenApiConfig.java       # Swagger/OpenAPI 설정
     │   └── SecurityConfig.java     # Spring Security 설정
     ├── exception/
-    │   └── GlobalExceptionHandler.java  # 전역 예외 처리
+    │   ├── BusinessException.java   # 비즈니스 예외 클래스 ✅
+    │   ├── ErrorCode.java          # 에러 코드 enum ✅
+    │   └── GlobalExceptionHandler.java  # 전역 예외 처리 ✅
     └── security/
         └── JwtUtil.java            # JWT 유틸리티
 ```
@@ -288,11 +291,14 @@ GET /api/todos?keyword=회의&page=0&size=10
   - OpenAPI JSON 스펙 (`/api-docs`)
   - API 스펙 자동 생성 및 프론트엔드 연동
 
-- [x] **예외 처리**
+- [x] **예외 처리** ✅
   - 전역 예외 핸들러 (`GlobalExceptionHandler`)
-  - 공통 에러 응답 형식 (`ApiResponse`)
+  - 커스텀 예외 체계 (`BusinessException`, `ErrorCode`)
+  - 공통 에러 응답 형식 (`ErrorResponse`, `ApiResponse`)
   - Bean Validation 유효성 검사
   - 사용자 친화적 에러 메시지
+  - 도메인별 에러 코드 관리
+  - 자동 로깅 및 모니터링
 
 - [x] **데이터베이스**
   - MariaDB 연동
@@ -380,6 +386,1828 @@ GET /api/todos?keyword=회의&page=0&size=10
   - 구조화된 로깅 (JSON 형식)
   - 에러 추적 (Sentry 등)
   - 성능 모니터링 (APM)
+
+### 🏗️ Phase 4 진행 중 - 아키텍처 및 코드 품질 개선
+
+**기능 개요:**
+코드 유지보수성, 확장성, 성능을 향상시키기 위한 아키텍처 리팩토링 및 베스트 프랙티스 적용
+
+#### 우선순위: 높음 (필수)
+
+**1. 커스텀 예외 처리 체계 구축 ✅ (완료)**
+
+**구현 완료 내용:**
+
+```java
+// global/exception/BusinessException.java
+@Getter
+public class BusinessException extends RuntimeException {
+    private final ErrorCode errorCode;
+    
+    public BusinessException(ErrorCode errorCode) {
+        super(errorCode.getMessage());
+        this.errorCode = errorCode;
+    }
+    
+    public BusinessException(ErrorCode errorCode, String customMessage) {
+        super(customMessage);
+        this.errorCode = errorCode;
+    }
+    
+    public BusinessException(ErrorCode errorCode, Throwable cause) {
+        super(errorCode.getMessage(), cause);
+        this.errorCode = errorCode;
+    }
+    
+    public int getStatus() {
+        return errorCode.getStatus();
+    }
+}
+
+// global/exception/ErrorCode.java
+@Getter
+@RequiredArgsConstructor
+public enum ErrorCode {
+    // Common (공통)
+    INTERNAL_SERVER_ERROR(500, "서버 오류가 발생했습니다."),
+    INVALID_INPUT_VALUE(400, "잘못된 입력값입니다."),
+    UNAUTHORIZED(401, "인증이 필요합니다."),
+    FORBIDDEN(403, "권한이 없습니다."),
+    
+    // User (사용자)
+    USER_NOT_FOUND(404, "사용자를 찾을 수 없습니다."),
+    DUPLICATE_USERNAME(409, "이미 존재하는 사용자명입니다."),
+    INVALID_CREDENTIALS(401, "아이디 또는 비밀번호가 올바르지 않습니다."),
+    
+    // Todo (할 일)
+    TODO_NOT_FOUND(404, "TODO를 찾을 수 없습니다."),
+    TODO_ACCESS_DENIED(403, "TODO에 접근할 권한이 없습니다."),
+    
+    // Project (프로젝트)
+    PROJECT_NOT_FOUND(404, "프로젝트를 찾을 수 없습니다."),
+    PROJECT_ACCESS_DENIED(403, "프로젝트에 접근할 권한이 없습니다."),
+    PROJECT_NAME_DUPLICATE(409, "이미 존재하는 프로젝트명입니다."),
+    DEFAULT_PROJECT_DELETE_NOT_ALLOWED(400, "기본 프로젝트는 삭제할 수 없습니다."),
+    DEFAULT_PROJECT_NOT_FOUND(404, "기본 프로젝트를 찾을 수 없습니다.");
+    
+    private final int status;
+    private final String message;
+}
+
+// global/common/dto/ErrorResponse.java
+@Getter
+@Builder
+public class ErrorResponse {
+    private boolean success;
+    private int status;
+    private String message;
+    private String code;
+    private LocalDateTime timestamp;
+    
+    public static ErrorResponse of(ErrorCode errorCode) { ... }
+    public static ErrorResponse of(ErrorCode errorCode, String customMessage) { ... }
+    public static ErrorResponse of(int status, String message) { ... }
+}
+```
+
+**GlobalExceptionHandler 확장:**
+- ✅ `BusinessException` 핸들러 추가
+- ✅ `AccessDeniedException` 핸들러 추가 (Spring Security)
+- ✅ `IllegalArgumentException` 핸들러 추가
+- ✅ 전역 `Exception` 핸들러 추가
+- ✅ 로깅 기능 추가 (Slf4j)
+- ✅ 커스텀 예외 핸들러 추가 예시 주석 작성
+
+**Service 계층 마이그레이션 완료:**
+- ✅ `TodoService`: 모든 `RuntimeException` → `BusinessException` 변경
+- ✅ `ProjectService`: 모든 `IllegalArgumentException` → `BusinessException` 변경
+- ✅ `AuthService`: 인증 관련 예외 → `BusinessException` 변경
+
+**장점:**
+- ✅ 타입 안전성: ErrorCode enum으로 컴파일 타임 검증
+- ✅ 일관된 에러 응답: 모든 API가 동일한 에러 형식 반환
+- ✅ 명확한 에러 코드: 클라이언트가 에러를 쉽게 구분 가능
+- ✅ 유지보수성 향상: 에러 메시지 중앙 관리
+- ✅ 로깅 개선: 예외 발생 시 자동 로깅
+- ✅ 확장성: 새로운 에러 코드 추가가 간단함
+
+**체크리스트:**
+- [x] `BusinessException` 클래스 생성
+- [x] `ErrorCode` enum 정의 (모든 도메인 에러)
+- [x] `ErrorResponse` DTO 생성
+- [x] `GlobalExceptionHandler`에 예외 핸들러 추가
+  - [x] `BusinessException` 핸들러
+  - [x] `Exception` 전역 핸들러
+  - [x] `AccessDeniedException` 핸들러
+  - [x] `IllegalArgumentException` 핸들러
+- [x] 모든 Service 클래스의 예외 코드 마이그레이션
+- [x] 커스텀 예외 핸들러 추가 예시 주석 작성
+- [ ] 테스트 코드 업데이트 (향후 작업)
+
+**완료 시간:** 약 3시간
+
+---
+
+**2. Specification 패턴으로 동적 쿼리 개선 (5-6시간)**
+
+**현재 문제:**
+- `TodoService.getTodos`에 if-else 체인이 길어짐 (73-111줄)
+- 복합 필터 조합 지원이 어려움
+- 새로운 검색 조건 추가 시 메서드가 계속 비대해짐
+
+**구현 계획:**
+
+```java
+// domain/todo/repository/specification/TodoSpecification.java
+public class TodoSpecification {
+    
+    public static Specification<Todo> hasUserId(Long userId) {
+        return (root, query, cb) -> cb.equal(root.get("user").get("id"), userId);
+    }
+    
+    public static Specification<Todo> hasKeyword(String keyword) {
+        return (root, query, cb) -> {
+            if (keyword == null || keyword.isEmpty()) return null;
+            String pattern = "%" + keyword + "%";
+            return cb.or(
+                cb.like(root.get("title"), pattern),
+                cb.like(root.get("description"), pattern)
+            );
+        };
+    }
+    
+    public static Specification<Todo> hasStatus(Todo.TodoStatus status) {
+        return (root, query, cb) -> 
+            status != null ? cb.equal(root.get("status"), status) : null;
+    }
+    
+    public static Specification<Todo> hasPriority(Todo.Priority priority) {
+        return (root, query, cb) -> 
+            priority != null ? cb.equal(root.get("priority"), priority) : null;
+    }
+    
+    public static Specification<Todo> hasProjectId(Long projectId) {
+        return (root, query, cb) -> 
+            projectId != null ? cb.equal(root.get("projectId"), projectId) : null;
+    }
+    
+    public static Specification<Todo> dueDateBetween(Timestamp start, Timestamp end) {
+        return (root, query, cb) -> {
+            if (start == null || end == null) return null;
+            return cb.between(root.get("dueDate"), start, end);
+        };
+    }
+}
+
+// TodoRepository를 JpaSpecificationExecutor로 확장
+public interface TodoRepository extends JpaRepository<Todo, Long>, 
+                                        JpaSpecificationExecutor<Todo>, 
+                                        TodoRepositoryCustom {
+    // 기존 메서드들 유지
+}
+
+// TodoService 간소화
+public Page<TodoResponse> getTodos(Long userId, TodoSearchRequest request) {
+    Specification<Todo> spec = Specification
+        .where(TodoSpecification.hasUserId(userId))
+        .and(TodoSpecification.hasKeyword(request.getKeyword()))
+        .and(TodoSpecification.hasStatus(request.getStatus()))
+        .and(TodoSpecification.hasPriority(request.getPriority()))
+        .and(TodoSpecification.hasProjectId(request.getProjectId()))
+        .and(TodoSpecification.dueDateBetween(
+            request.getDueDateStart(), 
+            request.getDueDateEnd()
+        ));
+    
+    Pageable pageable = createPageable(request);
+    return todoRepository.findAll(spec, pageable).map(TodoResponse::from);
+}
+```
+
+**장점:**
+- 검색 조건을 자유롭게 조합 가능
+- 코드 가독성 및 유지보수성 향상
+- 새로운 필터 추가가 간단함
+- 타입 안전성 보장
+
+**체크리스트:**
+- [ ] `TodoSpecification` 클래스 생성
+- [ ] 모든 필터 조건을 Specification으로 변환
+- [ ] `TodoRepository`에 `JpaSpecificationExecutor` 추가
+- [ ] `TodoService.getTodos` 리팩토링
+- [ ] 기존 쿼리 메서드 제거 고려
+- [ ] 단위 테스트 작성
+- [ ] 통합 테스트 업데이트
+
+**예상 시간:** 5-6시간
+
+---
+
+**3. N+1 쿼리 문제 해결 ✅ (완료)**
+
+**구현 완료 내용:**
+
+```java
+// 1. TodoCountByProject DTO 인터페이스 생성
+public interface TodoCountByProject {
+    Long getProjectId();
+    Long getCount();
+}
+
+// 2. TodoRepository에 그룹화 쿼리 추가
+@Query("""
+    SELECT t.projectId as projectId, COUNT(t) as count
+    FROM Todo t 
+    WHERE t.user.id = :userId 
+    GROUP BY t.projectId
+    """)
+List<TodoCountByProject> countByUserGroupByProjectId(@Param("userId") Long userId);
+
+// 3. ProjectService 리팩토링
+public List<ProjectResponse> getProjectsByUser(User user) {
+    // 1. 사용자의 모든 프로젝트 조회 (1 query)
+    List<Project> projects = projectRepository
+        .findByUserOrderByPositionAscCreatedAtAsc(user);
+    
+    // 2. 사용자의 모든 TODO를 프로젝트별로 그룹화하여 개수 조회 (1 query)
+    Map<Long, Long> todoCountMap = todoRepository
+            .countByUserGroupByProjectId(user.getId())
+            .stream()
+            .collect(Collectors.toMap(
+                    result -> result.getProjectId(),
+                    result -> result.getCount()
+            ));
+    
+    // 3. 프로젝트와 TODO 개수 매핑 (메모리 작업)
+    return projects.stream()
+            .map(project -> {
+                Long todoCount = todoCountMap.getOrDefault(project.getId(), 0L);
+                return ProjectResponse.fromWithTodoCount(project, todoCount);
+            })
+            .collect(Collectors.toList());
+}
+```
+
+**성능 개선 효과:**
+- ✅ 프로젝트 10개: **11 queries → 2 queries** (82% ↓)
+- ✅ 프로젝트 100개: **101 queries → 2 queries** (98% ↓)
+- ✅ 프로젝트 1000개: **1001 queries → 2 queries** (99.8% ↓)
+
+**핵심 기술:**
+- Spring Data JPA Query Projection
+- GROUP BY를 활용한 집계 쿼리
+- Map을 사용한 인메모리 조인
+
+**체크리스트:**
+- [x] `TodoCountByProject` DTO 인터페이스 생성
+- [x] `countByUserGroupByProjectId` 쿼리 메서드 추가
+- [x] `ProjectService.getProjectsByUser` 리팩토링
+- [x] 쿼리 로그 설정 추가 (`use_sql_comments: true`)
+- [x] 빌드 테스트 통과
+- [x] 상세 문서 작성 (`N+1_QUERY_OPTIMIZATION.md`)
+- [ ] `ProjectService.getProject` 최적화 (향후 작업, 단일 조회는 문제 없음)
+- [ ] 실제 API 성능 테스트 (수동)
+
+**완료 시간:** 약 2시간
+
+**참고 문서:** `N+1_QUERY_OPTIMIZATION.md`
+
+#### 우선순위: 중간
+
+**4. Strategy 패턴으로 검색 로직 분리 (선택, 4-5시간)**
+
+**구현 계획:**
+
+```java
+// domain/todo/service/search/TodoSearchStrategy.java
+public interface TodoSearchStrategy {
+    boolean supports(TodoSearchRequest request);
+    Page<Todo> search(Long userId, TodoSearchRequest request, Pageable pageable);
+    int priority();  // 우선순위 (높을수록 먼저 실행)
+}
+
+// 구현 예시
+@Component
+@RequiredArgsConstructor
+public class KeywordSearchStrategy implements TodoSearchStrategy {
+    private final TodoRepository repository;
+    
+    @Override
+    public boolean supports(TodoSearchRequest request) {
+        return request.getKeyword() != null && !request.getKeyword().isEmpty();
+    }
+    
+    @Override
+    public Page<Todo> search(Long userId, TodoSearchRequest request, Pageable pageable) {
+        return repository.searchByKeyword(userId, request.getKeyword(), pageable);
+    }
+    
+    @Override
+    public int priority() {
+        return 100;  // 키워드 검색 우선
+    }
+}
+
+// TodoService 개선
+@Service
+@RequiredArgsConstructor
+public class TodoService {
+    private final List<TodoSearchStrategy> searchStrategies;
+    
+    public Page<TodoResponse> getTodos(Long userId, TodoSearchRequest searchRequest) {
+        Pageable pageable = createPageable(searchRequest);
+        
+        Page<Todo> todos = searchStrategies.stream()
+            .sorted(Comparator.comparing(TodoSearchStrategy::priority).reversed())
+            .filter(strategy -> strategy.supports(searchRequest))
+            .findFirst()
+            .map(strategy -> strategy.search(userId, searchRequest, pageable))
+            .orElseGet(() -> todoRepository.findByUserId(userId, pageable));
+        
+        return todos.map(TodoResponse::from);
+    }
+}
+```
+
+**참고:** Specification 패턴(우선순위 높음)을 구현하면 이 패턴은 선택사항이 됩니다.
+
+**체크리스트:**
+- [ ] `TodoSearchStrategy` 인터페이스 정의
+- [ ] 각 검색 조건별 Strategy 구현
+  - `KeywordSearchStrategy`
+  - `StatusSearchStrategy`
+  - `PrioritySearchStrategy`
+  - `ProjectSearchStrategy`
+  - `DateRangeSearchStrategy`
+- [ ] `TodoService` 리팩토링
+- [ ] 단위 테스트 작성
+
+**예상 시간:** 4-5시간
+
+---
+
+**5. MapStruct로 DTO 매핑 자동화 (4-5시간)**
+
+**현재 문제:**
+- DTO ↔ Entity 변환 로직이 수동으로 작성됨
+- 보일러플레이트 코드 증가
+
+**구현 계획:**
+
+```gradle
+// build.gradle
+dependencies {
+    implementation 'org.mapstruct:mapstruct:1.5.5.Final'
+    annotationProcessor 'org.mapstruct:mapstruct-processor:1.5.5.Final'
+}
+```
+
+```java
+// domain/todo/mapper/TodoMapper.java
+@Mapper(componentModel = "spring")
+public interface TodoMapper {
+    
+    @Mapping(target = "id", ignore = true)
+    @Mapping(target = "createdAt", ignore = true)
+    @Mapping(target = "updatedAt", ignore = true)
+    @Mapping(target = "completedAt", ignore = true)
+    @Mapping(target = "user", ignore = true)
+    Todo toEntity(TodoRequest request);
+    
+    TodoResponse toResponse(Todo todo);
+    
+    List<TodoResponse> toResponseList(List<Todo> todos);
+    
+    @BeanMapping(nullValuePropertyMappingStrategy = NullValuePropertyMappingStrategy.IGNORE)
+    void updateEntityFromRequest(TodoRequest request, @MappingTarget Todo todo);
+}
+
+// TodoService에서 사용
+public TodoResponse updateTodo(Long userId, Long todoId, TodoRequest request) {
+    Todo todo = getTodoOrThrow(todoId, userId);
+    todoMapper.updateEntityFromRequest(request, todo);  // 자동 매핑
+    
+    Todo updated = todoRepository.save(todo);
+    return todoMapper.toResponse(updated);
+}
+```
+
+**체크리스트:**
+- [ ] MapStruct 의존성 추가
+- [ ] `TodoMapper` 인터페이스 생성
+- [ ] `ProjectMapper` 인터페이스 생성
+- [ ] Service 계층에서 수동 매핑 제거
+- [ ] 빌드 확인 (매퍼 구현체 자동 생성)
+- [ ] 테스트 코드 업데이트
+
+**예상 시간:** 4-5시간
+
+---
+
+**6. Spring Events로 관심사 분리 (3-4시간)**
+
+**구현 계획:**
+
+```java
+// domain/todo/event/TodoCreatedEvent.java
+@Getter
+@AllArgsConstructor
+public class TodoCreatedEvent {
+    private final Todo todo;
+    private final User user;
+}
+
+// TodoService에서 이벤트 발행
+@Transactional
+public TodoResponse createTodo(Long userId, TodoRequest request) {
+    // TODO 생성 로직
+    Todo saved = todoRepository.save(todo);
+    
+    // 이벤트 발행 (비동기 처리 가능)
+    eventPublisher.publishEvent(new TodoCreatedEvent(saved, user));
+    
+    return TodoResponse.from(saved);
+}
+
+// 이벤트 리스너
+@Component
+@RequiredArgsConstructor
+public class TodoEventListener {
+    
+    @Async
+    @EventListener
+    @TransactionalEventListener(phase = TransactionPhase.AFTER_COMMIT)
+    public void handleTodoCreated(TodoCreatedEvent event) {
+        // 통계 업데이트
+        // 알림 발송 (Phase 6에서 구현)
+        // 외부 시스템 연동
+        log.info("TODO 생성됨: {}", event.getTodo().getTitle());
+    }
+}
+```
+
+**장점:**
+- Service 계층의 책임 분리
+- 비동기 처리 가능
+- 기능 추가 시 기존 코드 수정 불필요
+
+**체크리스트:**
+- [ ] 이벤트 클래스 정의
+  - `TodoCreatedEvent`
+  - `TodoUpdatedEvent`
+  - `TodoDeletedEvent`
+  - `ProjectCreatedEvent` 등
+- [ ] `@EnableAsync` 설정
+- [ ] 이벤트 리스너 구현
+- [ ] Service에서 이벤트 발행 추가
+- [ ] 테스트 코드 작성
+
+**예상 시간:** 3-4시간
+
+---
+
+**7. 캐싱 전략 구현 (3-4시간)**
+
+**구현 계획:**
+
+```java
+// config/CacheConfig.java
+@Configuration
+@EnableCaching
+public class CacheConfig {
+    
+    @Bean
+    public CacheManager cacheManager() {
+        SimpleCacheManager cacheManager = new SimpleCacheManager();
+        cacheManager.setCaches(Arrays.asList(
+            new ConcurrentMapCache("todos"),
+            new ConcurrentMapCache("projects"),
+            new ConcurrentMapCache("stats")
+        ));
+        return cacheManager;
+    }
+}
+
+// TodoService에 캐싱 적용
+@Cacheable(value = "todos", key = "#userId + '_' + #todoId")
+public TodoResponse getTodo(Long userId, Long todoId) {
+    // 캐시 미스 시에만 실행
+}
+
+@CacheEvict(value = "todos", key = "#userId + '_' + #todoId")
+public TodoResponse updateTodo(Long userId, Long todoId, TodoRequest request) {
+    // 업데이트 후 캐시 삭제
+}
+
+@Caching(evict = {
+    @CacheEvict(value = "todos", allEntries = true),
+    @CacheEvict(value = "stats", key = "#userId")
+})
+public void deleteTodo(Long userId, Long todoId) {
+    // 삭제 후 관련 캐시 모두 삭제
+}
+```
+
+**주의사항:**
+- 프로덕션에서는 Redis 사용 권장
+- 캐시 TTL 설정 필요
+- 캐시 일관성 보장
+
+**체크리스트:**
+- [ ] `@EnableCaching` 설정
+- [ ] `CacheManager` 빈 등록
+- [ ] 주요 조회 메서드에 `@Cacheable` 적용
+- [ ] 수정/삭제 메서드에 `@CacheEvict` 적용
+- [ ] 캐시 키 전략 설계
+- [ ] 캐시 모니터링 로그 추가
+- [ ] 성능 테스트
+
+**예상 시간:** 3-4시간
+
+#### 우선순위: 낮음 (선택)
+
+**8. 감사 로그 시스템 (5-6시간)**
+
+**구현 계획:**
+
+```java
+// global/audit/AuditLog.java
+@Entity
+@Table(name = "audit_logs")
+public class AuditLog {
+    @Id @GeneratedValue
+    private Long id;
+    
+    private String entityName;  // "Todo", "Project"
+    private Long entityId;
+    private String action;      // "CREATE", "UPDATE", "DELETE"
+    private Long userId;
+    private String username;
+    
+    @Column(columnDefinition = "TEXT")
+    private String changesBefore;  // JSON
+    
+    @Column(columnDefinition = "TEXT")
+    private String changesAfter;   // JSON
+    
+    private LocalDateTime timestamp;
+    private String ipAddress;
+}
+
+// AOP로 자동 감사
+@Aspect
+@Component
+public class AuditAspect {
+    
+    @AfterReturning(
+        pointcut = "@annotation(auditable)",
+        returning = "result"
+    )
+    public void logAudit(JoinPoint joinPoint, Auditable auditable, Object result) {
+        // 감사 로그 기록
+    }
+}
+```
+
+**체크리스트:**
+- [ ] `AuditLog` 엔티티 생성
+- [ ] `@Auditable` 어노테이션 정의
+- [ ] `AuditAspect` 구현
+- [ ] Service 메서드에 `@Auditable` 적용
+- [ ] 감사 로그 조회 API
+- [ ] 테스트
+
+**예상 시간:** 5-6시간
+
+---
+
+**9. Rate Limiting 구현 (2-3시간)**
+
+**구현 계획:**
+
+```java
+// Google Guava RateLimiter 사용
+@Aspect
+@Component
+public class RateLimitAspect {
+    private final Map<String, RateLimiter> limiters = new ConcurrentHashMap<>();
+    
+    @Around("@annotation(rateLimit)")
+    public Object checkRateLimit(ProceedingJoinPoint joinPoint, RateLimit rateLimit) 
+        throws Throwable {
+        
+        String key = getCurrentUserKey();
+        RateLimiter limiter = limiters.computeIfAbsent(
+            key, 
+            k -> RateLimiter.create(rateLimit.permitsPerSecond())
+        );
+        
+        if (!limiter.tryAcquire()) {
+            throw new BusinessException(ErrorCode.TOO_MANY_REQUESTS);
+        }
+        
+        return joinPoint.proceed();
+    }
+}
+
+// 사용 예시
+@RateLimit(permitsPerSecond = 10.0)
+@PostMapping
+public ResponseEntity<?> createTodo(@RequestBody TodoRequest request) {
+    // 초당 10개 요청 제한
+}
+```
+
+**체크리스트:**
+- [ ] Guava 의존성 추가
+- [ ] `@RateLimit` 어노테이션 정의
+- [ ] `RateLimitAspect` 구현
+- [ ] Controller에 적용
+- [ ] ErrorCode 추가 (TOO_MANY_REQUESTS)
+- [ ] 테스트
+
+**예상 시간:** 2-3시간
+
+---
+
+**10. Soft Delete 구현 (2-3시간)**
+
+**구현 계획:**
+
+```java
+// Todo 엔티티에 추가
+@Entity
+@SQLDelete(sql = "UPDATE todos SET deleted_at = NOW() WHERE id = ?")
+@Where(clause = "deleted_at IS NULL")
+public class Todo extends BaseEntity {
+    @Column(name = "deleted_at")
+    private LocalDateTime deletedAt;
+}
+
+// 복구 API 추가
+@Transactional
+public void restoreTodo(Long todoId, Long userId) {
+    Todo todo = todoRepository.findByIdIncludingDeleted(todoId)
+        .orElseThrow(() -> new BusinessException(ErrorCode.TODO_NOT_FOUND));
+    
+    if (!todo.getUser().getId().equals(userId)) {
+        throw new BusinessException(ErrorCode.TODO_ACCESS_DENIED);
+    }
+    
+    todo.setDeletedAt(null);
+    todoRepository.save(todo);
+}
+```
+
+**체크리스트:**
+- [ ] 엔티티에 `deletedAt` 필드 추가
+- [ ] `@SQLDelete`, `@Where` 어노테이션 적용
+- [ ] 복구 API 구현
+- [ ] 휴지통 조회 API
+- [ ] 영구 삭제 API (관리자용)
+- [ ] 테스트
+
+**예상 시간:** 2-3시간
+
+#### 추가 개선사항
+
+**11. JOOQ 타입 안전성 개선 (4-5시간)**
+
+**현재 문제:**
+- `TodoRepositoryImpl`에서 문자열 기반 필드명 사용
+- 리팩토링 시 런타임 오류 위험
+
+**구현 계획:**
+
+```gradle
+plugins {
+    id 'nu.studer.jooq' version '8.2'
+}
+
+jooq {
+    configurations {
+        main {
+            generateSchemaSourceOnCompilation = true
+            generationTool {
+                jdbc {
+                    driver = 'org.mariadb.jdbc.Driver'
+                    url = 'jdbc:mariadb://localhost:3306/todoapp'
+                }
+                generator {
+                    database {
+                        name = 'org.jooq.meta.mariadb.MariaDBDatabase'
+                    }
+                    target {
+                        packageName = 'com.TodoApp.backend.jooq'
+                        directory = 'build/generated-src/jooq/main'
+                    }
+                }
+            }
+        }
+    }
+}
+```
+
+**체크리스트:**
+- [ ] JOOQ Gradle 플러그인 설정
+- [ ] 코드 생성 실행
+- [ ] `TodoRepositoryImpl` 리팩토링
+- [ ] 문자열 필드명을 타입 안전 코드로 변경
+- [ ] 빌드 스크립트 업데이트
+
+**예상 시간:** 4-5시간
+
+---
+
+**12. 입력 검증 강화 (2-3시간)**
+
+```java
+// TodoRequest 개선
+public class TodoRequest {
+    @NotBlank(message = "제목은 필수입니다")
+    @Size(min = 1, max = 255, message = "제목은 1-255자여야 합니다")
+    private String title;
+    
+    @Size(max = 5000, message = "설명은 5000자 이하여야 합니다")
+    private String description;
+    
+    @Min(value = 0, message = "position은 0 이상이어야 합니다")
+    private Integer position;
+}
+
+// ProjectRequest 개선
+public class ProjectRequest {
+    @NotBlank
+    @Size(min = 1, max = 100)
+    private String name;
+    
+    @Pattern(regexp = "^#[0-9A-Fa-f]{6}$", message = "유효하지 않은 색상 코드")
+    private String color;
+}
+```
+
+**체크리스트:**
+- [ ] 모든 Request DTO에 validation 어노테이션 추가
+- [ ] Custom Validator 작성 (필요 시)
+- [ ] 에러 메시지 한글화
+- [ ] Validation 실패 테스트 작성
+
+**예상 시간:** 2-3시간
+
+#### 총 예상 개발 시간
+
+**우선순위 높음 (필수):** 11-14시간
+- 예외 처리 체계: 3-4시간
+- Specification 패턴: 5-6시간
+- N+1 문제 해결: 3-4시간
+
+**우선순위 중간 (권장):** 14-18시간
+- Strategy 패턴: 4-5시간 (Specification 구현 시 선택)
+- MapStruct: 4-5시간
+- Spring Events: 3-4시간
+- 캐싱: 3-4시간
+
+**우선순위 낮음 (선택):** 11-15시간
+- 감사 로그: 5-6시간
+- Rate Limiting: 2-3시간
+- Soft Delete: 2-3시간
+
+**추가 개선:** 6-8시간
+- JOOQ 타입 안전성: 4-5시간
+- 입력 검증 강화: 2-3시간
+
+**총합:** 42-55시간
+
+---
+
+### 📅 Phase 6 예정 - TODO 일정 관리 및 알림 기능
+
+**기능 개요:**
+TODO에 상세한 일정 관리 필드를 추가하고, 카카오톡/SMS/이메일을 통한 알림 기능을 구현합니다.
+
+#### 1. TODO 엔티티 확장 - 일정 관리 필드
+
+**추가될 필드:**
+
+```java
+// Todo.java 엔티티에 추가할 필드들
+
+@Entity
+public class Todo {
+    // ... 기존 필드들 ...
+    
+    // === 일정 관련 필드 ===
+    
+    /**
+     * 일정 시작 일시 (선택)
+     * 시작 시간이 있는 TODO인 경우 사용
+     */
+    @Column(name = "start_date")
+    private Timestamp startDate;
+    
+    /**
+     * 일정 종료 일시 (선택)
+     * 종료 시간이 있는 TODO인 경우 사용 (기존 dueDate와 별개)
+     */
+    @Column(name = "end_date")
+    private Timestamp endDate;
+    
+    /**
+     * 종일 일정 여부
+     * true: 종일 일정 (시간 무시)
+     * false: 시간 포함 일정
+     */
+    @Column(name = "is_all_day", nullable = false)
+    private Boolean isAllDay = false;
+    
+    /**
+     * 반복 일정 설정 (JSON 형식)
+     * 예: {"type": "DAILY", "interval": 1, "endDate": "2025-12-31"}
+     * type: NONE, DAILY, WEEKLY, MONTHLY, YEARLY
+     * interval: 반복 간격 (예: 2일마다, 3주마다)
+     * daysOfWeek: 요일 선택 (주간 반복 시) [1-7, 월-일]
+     * dayOfMonth: 날짜 선택 (월간 반복 시) [1-31]
+     * endDate: 반복 종료일 (선택)
+     * count: 반복 횟수 (선택, endDate와 배타적)
+     */
+    @Column(name = "recurrence_rule", columnDefinition = "TEXT")
+    private String recurrenceRule;
+    
+    /**
+     * 원본 TODO ID (반복 일정의 경우)
+     * 반복 일정에서 생성된 개별 인스턴스는 이 필드로 원본을 참조
+     */
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "parent_todo_id")
+    private Todo parentTodo;
+    
+    /**
+     * 일정 위치 정보 (선택)
+     * 예: "서울시 강남구 테헤란로 123"
+     */
+    @Column(name = "location", length = 500)
+    private String location;
+    
+    /**
+     * 예상 소요 시간 (분 단위)
+     * 예: 30분, 120분 (2시간)
+     */
+    @Column(name = "estimated_duration")
+    private Integer estimatedDuration;
+    
+    // === 알림 관련 필드 ===
+    
+    /**
+     * 알림 설정 (JSON 배열 형식)
+     * 예: [{"type": "KAKAO", "timing": -30}, {"type": "SMS", "timing": -60}]
+     * type: EMAIL, SMS, KAKAO, PUSH
+     * timing: 알림 시간 (분 단위, 음수는 사전 알림)
+     *   -30: 30분 전
+     *   -60: 1시간 전
+     *   -1440: 1일 전
+     *   0: 정시
+     */
+    @Column(name = "notification_settings", columnDefinition = "TEXT")
+    private String notificationSettings;
+    
+    /**
+     * 알림 활성화 여부
+     */
+    @Column(name = "notification_enabled", nullable = false)
+    private Boolean notificationEnabled = false;
+}
+```
+
+**DTO 확장:**
+
+```java
+// TodoRequest.java
+public class TodoRequest {
+    // ... 기존 필드들 ...
+    
+    @Nullable
+    @Schema(nullable = true, description = "일정 시작 일시")
+    private Timestamp startDate;
+    
+    @Nullable
+    @Schema(nullable = true, description = "일정 종료 일시")
+    private Timestamp endDate;
+    
+    @Nullable
+    @Schema(nullable = true, description = "종일 일정 여부", defaultValue = "false")
+    private Boolean isAllDay;
+    
+    @Nullable
+    @Schema(nullable = true, description = "반복 설정 (JSON)")
+    private String recurrenceRule;
+    
+    @Nullable
+    @Schema(nullable = true, description = "일정 위치")
+    private String location;
+    
+    @Nullable
+    @Schema(nullable = true, description = "예상 소요 시간 (분)")
+    private Integer estimatedDuration;
+    
+    @Nullable
+    @Schema(nullable = true, description = "알림 설정 (JSON 배열)")
+    private String notificationSettings;
+    
+    @Nullable
+    @Schema(nullable = true, description = "알림 활성화 여부", defaultValue = "false")
+    private Boolean notificationEnabled;
+}
+
+// TodoResponse.java
+public class TodoResponse {
+    // ... 기존 필드들 ...
+    
+    private Timestamp startDate;
+    private Timestamp endDate;
+    private Boolean isAllDay;
+    private String recurrenceRule;
+    private String location;
+    private Integer estimatedDuration;
+    private String notificationSettings;
+    private Boolean notificationEnabled;
+    private Long parentTodoId;  // 반복 일정의 원본 ID
+}
+```
+
+#### 2. 알림 시스템 구조
+
+**새로운 도메인 패키지: notification**
+
+```
+domain/notification/
+├── controller/
+│   └── NotificationController.java     # 알림 테스트 및 설정 API
+├── dto/
+│   ├── NotificationRequest.java
+│   ├── NotificationSettingDto.java
+│   └── NotificationResponse.java
+├── entity/
+│   ├── NotificationLog.java            # 알림 발송 이력
+│   └── NotificationSetting.java        # 사용자별 알림 설정
+├── repository/
+│   ├── NotificationLogRepository.java
+│   └── NotificationSettingRepository.java
+├── service/
+│   ├── NotificationService.java        # 알림 관리 총괄
+│   ├── EmailNotificationService.java   # 이메일 알림
+│   ├── SmsNotificationService.java     # SMS 알림
+│   ├── KakaoNotificationService.java   # 카카오톡 알림톡
+│   └── PushNotificationService.java    # 브라우저 푸시 (선택)
+└── scheduler/
+    └── NotificationScheduler.java      # 알림 스케줄링 (Spring Scheduler)
+```
+
+**NotificationLog 엔티티:**
+
+```java
+@Entity
+@Table(name = "notification_logs")
+public class NotificationLog extends BaseEntity {
+    @Id
+    @GeneratedValue(strategy = GenerationType.IDENTITY)
+    private Long id;
+    
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "user_id", nullable = false)
+    private User user;
+    
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "todo_id", nullable = false)
+    private Todo todo;
+    
+    @Enumerated(EnumType.STRING)
+    @Column(nullable = false, length = 20)
+    private NotificationType type;  // EMAIL, SMS, KAKAO, PUSH
+    
+    @Column(nullable = false, length = 50)
+    private String status;  // PENDING, SENT, FAILED, CANCELLED
+    
+    @Column(name = "scheduled_time", nullable = false)
+    private Timestamp scheduledTime;  // 발송 예정 시간
+    
+    @Column(name = "sent_time")
+    private Timestamp sentTime;  // 실제 발송 시간
+    
+    @Column(name = "recipient", length = 255)
+    private String recipient;  // 수신자 정보 (이메일, 전화번호 등)
+    
+    @Column(name = "message", columnDefinition = "TEXT")
+    private String message;  // 발송된 메시지 내용
+    
+    @Column(name = "error_message", columnDefinition = "TEXT")
+    private String errorMessage;  // 실패 시 에러 메시지
+}
+```
+
+#### 3. 알림 서비스 구현 계획
+
+**3-1. 카카오톡 알림톡 (우선순위: 높음)**
+
+**필요 사항:**
+- 카카오 비즈니스 계정 등록
+- 알림톡 템플릿 승인 (카카오 검수 필요)
+- Kakao Notification API 연동
+
+**라이브러리:**
+```gradle
+// build.gradle
+implementation 'org.springframework.boot:spring-boot-starter-webflux'  // WebClient 사용
+```
+
+**구현 예시:**
+
+```java
+@Service
+@RequiredArgsConstructor
+public class KakaoNotificationService {
+    
+    private final WebClient kakaoWebClient;
+    
+    @Value("${kakao.api.key}")
+    private String kakaoApiKey;
+    
+    @Value("${kakao.sender.key}")
+    private String senderKey;
+    
+    /**
+     * 카카오톡 알림톡 발송
+     * 
+     * @param phoneNumber 수신자 전화번호 (010-1234-5678)
+     * @param templateCode 템플릿 코드 (카카오 승인된 템플릿)
+     * @param params 템플릿 변수 (Map)
+     */
+    public void sendKakaoNotification(
+        String phoneNumber, 
+        String templateCode,
+        Map<String, String> params
+    ) {
+        try {
+            String response = kakaoWebClient
+                .post()
+                .uri("/v2/api/send/ata/send")
+                .header("Authorization", "Bearer " + kakaoApiKey)
+                .contentType(MediaType.APPLICATION_JSON)
+                .bodyValue(Map.of(
+                    "senderKey", senderKey,
+                    "phoneNumber", phoneNumber.replace("-", ""),
+                    "templateCode", templateCode,
+                    "templateParameter", params
+                ))
+                .retrieve()
+                .bodyToMono(String.class)
+                .block();
+            
+            log.info("카카오톡 알림 발송 성공: {}", response);
+        } catch (Exception e) {
+            log.error("카카오톡 알림 발송 실패: {}", e.getMessage());
+            throw new RuntimeException("카카오톡 알림 발송 실패", e);
+        }
+    }
+    
+    /**
+     * TODO 알림 발송
+     */
+    public void sendTodoNotification(User user, Todo todo, int minutesBefore) {
+        String phoneNumber = user.getPhoneNumber();
+        
+        Map<String, String> params = new HashMap<>();
+        params.put("userName", user.getUsername());
+        params.put("todoTitle", todo.getTitle());
+        params.put("dueDate", formatDate(todo.getDueDate()));
+        params.put("timeUntil", formatTimeUntil(minutesBefore));
+        
+        // 템플릿 예시:
+        // [TodoApp 알림]
+        // #{userName}님, "#{todoTitle}" 할 일이 #{timeUntil} 남았습니다.
+        // 마감: #{dueDate}
+        
+        sendKakaoNotification(phoneNumber, "TODO_REMINDER", params);
+    }
+}
+```
+
+**3-2. SMS 문자 알림 (우선순위: 중간)**
+
+**SMS API 제공 업체 선택:**
+- NHN Cloud SMS (구 Toast Cloud)
+- Twilio
+- 알리고 (Aligo)
+- 솔라피 (Solapi)
+
+**구현 예시 (NHN Cloud SMS):**
+
+```java
+@Service
+@RequiredArgsConstructor
+public class SmsNotificationService {
+    
+    @Value("${nhn.sms.app-key}")
+    private String appKey;
+    
+    @Value("${nhn.sms.secret-key}")
+    private String secretKey;
+    
+    @Value("${nhn.sms.sender-number}")
+    private String senderNumber;
+    
+    private final RestTemplate restTemplate;
+    
+    public void sendSms(String recipient, String message) {
+        String url = "https://api-sms.cloud.toast.com/sms/v3.0/appKeys/" 
+                     + appKey + "/sender/sms";
+        
+        Map<String, Object> body = Map.of(
+            "body", message,
+            "sendNo", senderNumber,
+            "recipientList", List.of(Map.of("recipientNo", recipient))
+        );
+        
+        HttpHeaders headers = new HttpHeaders();
+        headers.setContentType(MediaType.APPLICATION_JSON);
+        headers.set("X-Secret-Key", secretKey);
+        
+        HttpEntity<Map<String, Object>> request = new HttpEntity<>(body, headers);
+        
+        try {
+            ResponseEntity<String> response = restTemplate.postForEntity(
+                url, request, String.class
+            );
+            log.info("SMS 발송 성공: {}", response.getBody());
+        } catch (Exception e) {
+            log.error("SMS 발송 실패: {}", e.getMessage());
+            throw new RuntimeException("SMS 발송 실패", e);
+        }
+    }
+    
+    public void sendTodoReminder(User user, Todo todo, int minutesBefore) {
+        String message = String.format(
+            "[TodoApp] %s님, \"%s\" 할 일이 %d분 후 마감됩니다.",
+            user.getUsername(),
+            todo.getTitle(),
+            minutesBefore
+        );
+        
+        sendSms(user.getPhoneNumber(), message);
+    }
+}
+```
+
+**3-3. 이메일 알림 (우선순위: 중간)**
+
+```java
+@Service
+@RequiredArgsConstructor
+public class EmailNotificationService {
+    
+    private final JavaMailSender mailSender;
+    
+    @Value("${spring.mail.from}")
+    private String fromEmail;
+    
+    public void sendEmail(String to, String subject, String body) {
+        try {
+            MimeMessage message = mailSender.createMimeMessage();
+            MimeMessageHelper helper = new MimeMessageHelper(message, true, "UTF-8");
+            
+            helper.setFrom(fromEmail);
+            helper.setTo(to);
+            helper.setSubject(subject);
+            helper.setText(body, true);  // HTML 지원
+            
+            mailSender.send(message);
+            log.info("이메일 발송 성공: {}", to);
+        } catch (Exception e) {
+            log.error("이메일 발송 실패: {}", e.getMessage());
+            throw new RuntimeException("이메일 발송 실패", e);
+        }
+    }
+    
+    public void sendTodoReminder(User user, Todo todo, int minutesBefore) {
+        String subject = "[TodoApp] TODO 알림: " + todo.getTitle();
+        String body = String.format("""
+            <html>
+            <body>
+                <h2>TODO 알림</h2>
+                <p>안녕하세요, %s님!</p>
+                <p>다음 할 일이 <strong>%d분 후</strong> 마감됩니다:</p>
+                <div style="padding: 15px; background: #f5f5f5; border-radius: 5px;">
+                    <h3>%s</h3>
+                    <p>%s</p>
+                    <p>마감: %s</p>
+                </div>
+            </body>
+            </html>
+            """,
+            user.getUsername(),
+            minutesBefore,
+            todo.getTitle(),
+            todo.getDescription() != null ? todo.getDescription() : "",
+            formatDate(todo.getDueDate())
+        );
+        
+        sendEmail(user.getEmail(), subject, body);
+    }
+}
+```
+
+#### 4. 알림 스케줄러 구현
+
+```java
+@Component
+@RequiredArgsConstructor
+@EnableScheduling
+public class NotificationScheduler {
+    
+    private final TodoRepository todoRepository;
+    private final NotificationLogRepository notificationLogRepository;
+    private final EmailNotificationService emailService;
+    private final SmsNotificationService smsService;
+    private final KakaoNotificationService kakaoService;
+    
+    /**
+     * 매 분마다 실행되어 알림이 필요한 TODO를 확인하고 알림 발송
+     */
+    @Scheduled(cron = "0 * * * * *")  // 매 분 0초에 실행
+    public void checkAndSendNotifications() {
+        LocalDateTime now = LocalDateTime.now();
+        LocalDateTime checkUntil = now.plusMinutes(60);  // 1시간 이내 알림 확인
+        
+        // 알림이 활성화되고 마감일이 다가오는 TODO 조회
+        List<Todo> upcomingTodos = todoRepository.findUpcomingTodosWithNotification(
+            Timestamp.valueOf(now), 
+            Timestamp.valueOf(checkUntil)
+        );
+        
+        for (Todo todo : upcomingTodos) {
+            try {
+                sendNotificationsForTodo(todo);
+            } catch (Exception e) {
+                log.error("알림 발송 실패 - TODO ID: {}, 에러: {}", 
+                    todo.getId(), e.getMessage());
+            }
+        }
+    }
+    
+    private void sendNotificationsForTodo(Todo todo) {
+        if (!todo.getNotificationEnabled() || 
+            todo.getNotificationSettings() == null) {
+            return;
+        }
+        
+        // JSON 파싱
+        List<NotificationSetting> settings = parseNotificationSettings(
+            todo.getNotificationSettings()
+        );
+        
+        for (NotificationSetting setting : settings) {
+            // 이미 발송된 알림인지 확인
+            if (isAlreadySent(todo, setting)) {
+                continue;
+            }
+            
+            // 알림 시간 계산
+            LocalDateTime notificationTime = calculateNotificationTime(
+                todo.getDueDate(), 
+                setting.getTiming()
+            );
+            
+            // 현재 시간이 알림 시간을 지났는지 확인
+            if (LocalDateTime.now().isAfter(notificationTime)) {
+                sendNotification(todo, setting);
+                logNotification(todo, setting, "SENT");
+            }
+        }
+    }
+    
+    private void sendNotification(Todo todo, NotificationSetting setting) {
+        User user = todo.getUser();
+        int minutesUntil = Math.abs(setting.getTiming());
+        
+        switch (setting.getType()) {
+            case EMAIL:
+                emailService.sendTodoReminder(user, todo, minutesUntil);
+                break;
+            case SMS:
+                smsService.sendTodoReminder(user, todo, minutesUntil);
+                break;
+            case KAKAO:
+                kakaoService.sendTodoNotification(user, todo, minutesUntil);
+                break;
+            case PUSH:
+                // 브라우저 푸시 알림 (선택)
+                break;
+        }
+    }
+}
+```
+
+#### 5. 반복 일정 처리
+
+```java
+@Service
+@RequiredArgsConstructor
+public class RecurrenceService {
+    
+    /**
+     * 반복 규칙에 따라 다음 발생 날짜 계산
+     */
+    public List<LocalDateTime> calculateOccurrences(
+        String recurrenceRule,
+        LocalDateTime startDate,
+        LocalDateTime endDate
+    ) {
+        RecurrenceRule rule = parseRecurrenceRule(recurrenceRule);
+        List<LocalDateTime> occurrences = new ArrayList<>();
+        
+        LocalDateTime current = startDate;
+        int count = 0;
+        
+        while (true) {
+            // 종료 조건 확인
+            if (rule.getEndDate() != null && current.isAfter(rule.getEndDate())) {
+                break;
+            }
+            if (rule.getCount() != null && count >= rule.getCount()) {
+                break;
+            }
+            if (endDate != null && current.isAfter(endDate)) {
+                break;
+            }
+            
+            occurrences.add(current);
+            count++;
+            
+            // 다음 발생 날짜 계산
+            current = getNextOccurrence(current, rule);
+        }
+        
+        return occurrences;
+    }
+    
+    private LocalDateTime getNextOccurrence(
+        LocalDateTime current, 
+        RecurrenceRule rule
+    ) {
+        return switch (rule.getType()) {
+            case DAILY -> current.plusDays(rule.getInterval());
+            case WEEKLY -> current.plusWeeks(rule.getInterval());
+            case MONTHLY -> current.plusMonths(rule.getInterval());
+            case YEARLY -> current.plusYears(rule.getInterval());
+            default -> current;
+        };
+    }
+}
+```
+
+#### 6. API 엔드포인트 추가
+
+| Method | Endpoint | 설명 | 인증 필요 |
+|--------|----------|------|----------|
+| GET | `/api/notifications/settings` | 사용자 알림 설정 조회 | ✅ |
+| PUT | `/api/notifications/settings` | 사용자 알림 설정 수정 | ✅ |
+| POST | `/api/notifications/test` | 테스트 알림 발송 | ✅ |
+| GET | `/api/notifications/logs` | 알림 발송 이력 조회 | ✅ |
+| GET | `/api/todos/{id}/recurrence` | 반복 일정 미리보기 | ✅ |
+
+#### 7. 환경 설정
+
+```yaml
+# application.yml에 추가
+
+# 카카오톡 알림톡 설정
+kakao:
+  api:
+    key: ${KAKAO_API_KEY}
+    url: https://kapi.kakao.com
+  sender:
+    key: ${KAKAO_SENDER_KEY}
+
+# SMS 설정 (NHN Cloud)
+nhn:
+  sms:
+    app-key: ${NHN_SMS_APP_KEY}
+    secret-key: ${NHN_SMS_SECRET_KEY}
+    sender-number: ${SMS_SENDER_NUMBER}
+
+# 이메일 설정
+spring:
+  mail:
+    host: smtp.gmail.com
+    port: 587
+    username: ${EMAIL_USERNAME}
+    password: ${EMAIL_PASSWORD}
+    from: ${EMAIL_FROM}
+    properties:
+      mail:
+        smtp:
+          auth: true
+          starttls:
+            enable: true
+
+# 스케줄러 설정
+scheduling:
+  enabled: true
+  notification:
+    check-interval: 60000  # 60초마다 확인
+```
+
+#### 8. 구현 우선순위 및 예상 시간
+
+**Phase 5-1: 일정 필드 확장 (4-5시간)**
+- [ ] Todo 엔티티 확장 (startDate, endDate, isAllDay 등)
+- [ ] DTO 및 매핑 로직 수정
+- [ ] 데이터베이스 마이그레이션 스크립트
+- [ ] API 문서 업데이트 (Swagger)
+
+**Phase 5-2: 이메일 알림 (3-4시간)**
+- [ ] JavaMailSender 설정
+- [ ] EmailNotificationService 구현
+- [ ] 이메일 템플릿 작성 (HTML)
+- [ ] 테스트 API 구현
+
+**Phase 5-3: 알림 스케줄러 (4-5시간)**
+- [ ] NotificationLog 엔티티 및 Repository
+- [ ] NotificationScheduler 구현
+- [ ] 알림 설정 파싱 로직
+- [ ] 중복 발송 방지 로직
+
+**Phase 5-4: SMS 알림 (3-4시간)**
+- [ ] SMS API 업체 선택 및 계정 생성
+- [ ] SmsNotificationService 구현
+- [ ] 테스트 및 에러 처리
+
+**Phase 5-5: 카카오톡 알림톡 (5-6시간)**
+- [ ] 카카오 비즈니스 계정 등록
+- [ ] 알림톡 템플릿 작성 및 승인 요청
+- [ ] KakaoNotificationService 구현
+- [ ] 테스트 및 에러 처리
+
+**Phase 5-6: 반복 일정 (6-8시간)**
+- [ ] RecurrenceService 구현
+- [ ] 반복 규칙 파싱 및 검증
+- [ ] 다음 발생 날짜 계산 로직
+- [ ] 반복 일정 미리보기 API
+
+**Phase 5-7: 사용자 알림 설정 (2-3시간)**
+- [ ] NotificationSetting 엔티티
+- [ ] 사용자별 알림 설정 CRUD API
+- [ ] 전역 알림 on/off 기능
+
+**총 예상 개발 시간: 27-35시간**
+
+#### 9. 테스트 계획
+
+- [ ] 단위 테스트: NotificationService, RecurrenceService
+- [ ] 통합 테스트: 알림 발송 플로우
+- [ ] 스케줄러 테스트: 시간대별 알림 발송
+- [ ] E2E 테스트: TODO 생성부터 알림 수신까지
+
+#### 10. 참고 문서
+
+- [Kakao Notification API 문서](https://developers.kakao.com/docs/latest/ko/message/rest-api)
+- [NHN Cloud SMS API 문서](https://docs.nhncloud.com/ko/Notification/SMS/ko/api-guide/)
+- [Spring Scheduler 가이드](https://spring.io/guides/gs/scheduling-tasks/)
+- [Spring Mail 가이드](https://docs.spring.io/spring-framework/reference/integration/email.html)
+
+### 📤 Phase 5 예정 - 파일 출력(Export) 기능
+
+**기능 개요:**
+TODO 및 프로젝트 데이터를 다양한 파일 형식으로 내보내기할 수 있는 기능 추가
+
+#### 지원 예정 파일 형식
+
+**1. JSON 출력 (우선순위: 높음)**
+- **구현 난이도**: ⭐ (낮음)
+- **예상 소요 시간**: 1-2시간
+- **필요 라이브러리**: 없음 (Spring Boot 기본 제공)
+- **API 엔드포인트 추가 예정**:
+  ```java
+  // TodoExportController.java (신규 생성)
+  
+  @GetMapping("/{todoId}/export/json")
+  public ResponseEntity<TodoResponse> exportTodoAsJson(
+      @AuthenticationPrincipal User user,
+      @PathVariable Long todoId
+  ) {
+      TodoResponse todo = todoService.getTodo(user.getId(), todoId);
+      
+      return ResponseEntity.ok()
+          .header(HttpHeaders.CONTENT_DISPOSITION, 
+                  "attachment; filename=todo_" + todoId + ".json")
+          .contentType(MediaType.APPLICATION_JSON)
+          .body(todo);
+  }
+  
+  @GetMapping("/export/json")
+  public ResponseEntity<List<TodoResponse>> exportTodosAsJson(
+      @AuthenticationPrincipal User user,
+      @ModelAttribute TodoSearchRequest searchRequest
+  ) {
+      Page<TodoResponse> todos = todoService.getTodos(user.getId(), searchRequest);
+      
+      return ResponseEntity.ok()
+          .header(HttpHeaders.CONTENT_DISPOSITION, 
+                  "attachment; filename=todos_" + LocalDate.now() + ".json")
+          .contentType(MediaType.APPLICATION_JSON)
+          .body(todos.getContent());
+  }
+  
+  @PostMapping("/export/json")
+  public ResponseEntity<List<TodoResponse>> exportSelectedTodosAsJson(
+      @AuthenticationPrincipal User user,
+      @RequestBody List<Long> todoIds
+  ) {
+      List<TodoResponse> todos = todoService.getTodosByIds(user.getId(), todoIds);
+      
+      return ResponseEntity.ok()
+          .header(HttpHeaders.CONTENT_DISPOSITION, 
+                  "attachment; filename=todos_selected_" + LocalDate.now() + ".json")
+          .contentType(MediaType.APPLICATION_JSON)
+          .body(todos);
+  }
+  ```
+
+**2. Excel 출력 (우선순위: 높음)**
+- **구현 난이도**: ⭐⭐ (중간)
+- **예상 소요 시간**: 3-4시간
+- **필요 라이브러리**: Apache POI
+  ```gradle
+  // build.gradle에 추가
+  implementation 'org.apache.poi:poi:5.2.5'
+  implementation 'org.apache.poi:poi-ooxml:5.2.5'
+  ```
+- **API 엔드포인트 추가 예정**:
+  ```java
+  @GetMapping("/export/excel")
+  public ResponseEntity<byte[]> exportTodosAsExcel(
+      @AuthenticationPrincipal User user,
+      @ModelAttribute TodoSearchRequest searchRequest
+  ) throws IOException {
+      Page<TodoResponse> todos = todoService.getTodos(user.getId(), searchRequest);
+      
+      Workbook workbook = new XSSFWorkbook();
+      Sheet sheet = workbook.createSheet("Todos");
+      
+      // 헤더 행 생성
+      Row headerRow = sheet.createRow(0);
+      String[] headers = {"ID", "제목", "설명", "상태", "우선순위", 
+                          "마감일", "생성일", "수정일", "완료일", "프로젝트"};
+      for (int i = 0; i < headers.length; i++) {
+          Cell cell = headerRow.createCell(i);
+          cell.setCellValue(headers[i]);
+          // 스타일링 적용 (굵게, 배경색 등)
+      }
+      
+      // 데이터 행 생성
+      int rowNum = 1;
+      for (TodoResponse todo : todos.getContent()) {
+          Row row = sheet.createRow(rowNum++);
+          row.createCell(0).setCellValue(todo.getId());
+          row.createCell(1).setCellValue(todo.getTitle());
+          row.createCell(2).setCellValue(todo.getDescription());
+          row.createCell(3).setCellValue(todo.getStatus());
+          row.createCell(4).setCellValue(todo.getPriority());
+          // ... 나머지 필드들
+      }
+      
+      // 열 너비 자동 조정
+      for (int i = 0; i < headers.length; i++) {
+          sheet.autoSizeColumn(i);
+      }
+      
+      ByteArrayOutputStream outputStream = new ByteArrayOutputStream();
+      workbook.write(outputStream);
+      workbook.close();
+      
+      return ResponseEntity.ok()
+          .header(HttpHeaders.CONTENT_DISPOSITION, 
+                  "attachment; filename=todos_" + LocalDate.now() + ".xlsx")
+          .contentType(MediaType.parseMediaType(
+                  "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"))
+          .body(outputStream.toByteArray());
+  }
+  ```
+- **Excel 스타일링**:
+  - 헤더 행: 굵게, 배경색 (회색)
+  - 상태별 색상 코딩 (TODO: 파랑, IN_PROGRESS: 주황, DONE: 초록)
+  - 우선순위별 색상 (HIGH: 빨강, MEDIUM: 노랑, LOW: 회색)
+
+**3. PDF 출력 (우선순위: 중간)**
+- **구현 난이도**: ⭐⭐⭐ (높음)
+- **예상 소요 시간**: 4-5시간
+- **필요 라이브러리**: iText7
+  ```gradle
+  // build.gradle에 추가
+  implementation 'com.itextpdf:itext7-core:7.2.5'
+  ```
+- **API 엔드포인트 추가 예정**:
+  ```java
+  @GetMapping("/{todoId}/export/pdf")
+  public ResponseEntity<byte[]> exportTodoAsPdf(
+      @AuthenticationPrincipal User user,
+      @PathVariable Long todoId
+  ) throws IOException {
+      TodoResponse todo = todoService.getTodo(user.getId(), todoId);
+      
+      ByteArrayOutputStream outputStream = new ByteArrayOutputStream();
+      PdfWriter writer = new PdfWriter(outputStream);
+      PdfDocument pdfDoc = new PdfDocument(writer);
+      Document document = new Document(pdfDoc);
+      
+      // 제목
+      document.add(new Paragraph(todo.getTitle())
+          .setFontSize(20)
+          .setBold());
+      
+      // 메타 정보
+      Table metaTable = new Table(2);
+      metaTable.addCell("상태");
+      metaTable.addCell(todo.getStatus());
+      metaTable.addCell("우선순위");
+      metaTable.addCell(todo.getPriority());
+      metaTable.addCell("마감일");
+      metaTable.addCell(todo.getDueDate() != null ? todo.getDueDate().toString() : "-");
+      metaTable.addCell("생성일");
+      metaTable.addCell(todo.getCreatedAt().toString());
+      document.add(metaTable);
+      
+      // 설명
+      document.add(new Paragraph("\n설명:").setBold());
+      document.add(new Paragraph(todo.getDescription() != null ? todo.getDescription() : "-"));
+      
+      document.close();
+      
+      return ResponseEntity.ok()
+          .header(HttpHeaders.CONTENT_DISPOSITION, 
+                  "attachment; filename=todo_" + todoId + ".pdf")
+          .contentType(MediaType.APPLICATION_PDF)
+          .body(outputStream.toByteArray());
+  }
+  ```
+
+#### 구현 계획
+
+**1단계: 기본 구조 및 JSON 출력 (1-2시간)**
+```
+domain/todo/
+├── controller/
+│   └── TodoExportController.java  (신규 생성)
+└── service/
+    └── TodoExportService.java     (신규 생성)
+
+domain/project/
+├── controller/
+│   └── ProjectExportController.java  (신규 생성)
+└── service/
+    └── ProjectExportService.java     (신규 생성)
+```
+
+**구현 내용:**
+- [ ] TodoExportController 생성
+- [ ] TodoExportService 생성
+- [ ] JSON 내보내기 엔드포인트 구현
+  - `GET /api/todos/{todoId}/export/json` - 단일 TODO
+  - `GET /api/todos/export/json` - 필터링된 목록
+  - `POST /api/todos/export/json` - 선택된 TODO 목록
+- [ ] ProjectExportController 생성
+- [ ] 프로젝트 JSON 내보내기 엔드포인트
+- [ ] Swagger/OpenAPI 문서화
+
+**2단계: Excel 출력 (3-4시간)**
+- [ ] Apache POI 라이브러리 추가 (build.gradle)
+- [ ] ExcelGeneratorService 유틸리티 클래스 생성
+- [ ] TODO 목록 Excel 생성 메소드 구현
+- [ ] Excel 스타일링 (헤더, 색상 코딩)
+- [ ] Excel 내보내기 엔드포인트 구현
+  - `GET /api/todos/export/excel`
+  - `GET /api/projects/{projectId}/export/excel`
+  - `POST /api/todos/export/excel`
+- [ ] 열 너비 자동 조정 및 최적화
+- [ ] Swagger 문서화
+
+**3단계: PDF 출력 (4-5시간)**
+- [ ] iText7 라이브러리 추가 (build.gradle)
+- [ ] PdfGeneratorService 유틸리티 클래스 생성
+- [ ] PDF 템플릿 디자인
+  - 헤더, 본문, 메타 정보 레이아웃
+  - 프로젝트 색상 반영
+- [ ] PDF 생성 메소드 구현
+- [ ] PDF 내보내기 엔드포인트 구현
+  - `GET /api/todos/{todoId}/export/pdf`
+  - `GET /api/projects/{projectId}/export/pdf`
+- [ ] Swagger 문서화
+
+#### 추가 고려사항
+
+**1. 보안**
+```java
+// TodoExportService.java
+
+public TodoResponse exportTodo(Long userId, Long todoId) {
+    Todo todo = todoRepository.findById(todoId)
+        .orElseThrow(() -> new IllegalArgumentException("TODO를 찾을 수 없습니다"));
+    
+    // 권한 검증 - 다른 사용자의 데이터 접근 방지
+    if (!todo.getUser().getId().equals(userId)) {
+        throw new AccessDeniedException("권한이 없습니다.");
+    }
+    
+    return TodoResponse.from(todo);
+}
+```
+
+**2. 파일명 커스터마이징**
+```java
+// 의미 있는 파일명 생성
+String filename = String.format("todos_%s_%s_%s.xlsx", 
+    user.getUsername(), 
+    LocalDate.now().format(DateTimeFormatter.ISO_DATE),
+    searchRequest.getStatus() != null ? searchRequest.getStatus() : "전체"
+);
+// 예: todos_홍길동_2025-12-07_진행중.xlsx
+```
+
+**3. 비동기 처리 (대용량 데이터)**
+```java
+@Service
+public class TodoExportService {
+    
+    @Async
+    public CompletableFuture<String> exportLargeTodoListAsync(
+            Long userId, 
+            TodoSearchRequest searchRequest
+    ) {
+        // 1. 대용량 데이터 조회 및 Excel 생성
+        // 2. S3 또는 파일 시스템에 저장
+        // 3. 다운로드 링크 생성
+        // 4. 이메일 전송 (선택)
+        
+        return CompletableFuture.completedFuture(downloadUrl);
+    }
+}
+```
+
+**4. Rate Limiting**
+```java
+// 과도한 내보내기 요청 제한
+@RateLimiter(name = "exportApi", fallbackMethod = "exportFallback")
+@GetMapping("/export/excel")
+public ResponseEntity<byte[]> exportTodosAsExcel(...) {
+    // 구현
+}
+```
+
+**5. 캐싱 전략**
+```java
+// 동일한 조건의 반복 요청 시 캐시 활용
+@Cacheable(
+    value = "todoExports", 
+    key = "#userId + '_' + #searchRequest.hashCode()"
+)
+public byte[] generateExcel(Long userId, TodoSearchRequest searchRequest) {
+    // Excel 생성 로직
+}
+```
+
+#### 프론트엔드 연동 방식
+
+**버튼 및 모달 구조:**
+- 각 페이지에 "내보내기" 버튼 하나만 배치
+- 버튼 클릭 시 `ExportModal.vue` 팝업 표시
+- 모달에서 파일 형식 선택 (JSON / Excel / PDF)
+- 선택한 형식에 맞는 API 엔드포인트 호출
+
+```typescript
+// 프론트엔드 호출 예시
+const handleExport = async (format: 'json' | 'excel' | 'pdf') => {
+  const response = await fetch(`/api/todos/${todoId}/export/${format}`, {
+    headers: { 'Authorization': `Bearer ${token}` }
+  });
+  
+  const blob = await response.blob();
+  downloadFile(blob, `todo_${todoId}.${format === 'excel' ? 'xlsx' : format}`);
+}
+```
+
+#### 예상 전체 개발 기간
+
+- **JSON 출력**: 1-2시간
+- **Excel 출력**: 3-4시간
+- **PDF 출력**: 4-5시간
+- **테스트 및 문서화**: 2-3시간
+- **총 예상 시간**: 10-14시간
+
+#### 참고 문서
+
+- [Apache POI 공식 문서](https://poi.apache.org/)
+- [iText7 공식 문서](https://itextpdf.com/en/products/itext-7)
+- [Spring Boot File Download 가이드](https://spring.io/guides/gs/uploading-files/)
+- [Spring @Async 문서](https://spring.io/guides/gs/async-method/)
 
 ## 🔧 설정
 
@@ -697,6 +2525,199 @@ public class TodoRequest {
 3. **데이터 무결성**: JPA 제약 조건으로 데이터베이스 레벨 보장
 4. **자동 처리**: 엔티티 생명주기에서 null 값 자동 관리
 5. **검증**: Bean Validation으로 요청 데이터 검증
+
+## 🚨 예외 처리 시스템
+
+### 커스텀 예외 처리 체계 ✅
+
+프로젝트는 체계적인 예외 처리 시스템을 구축하여 일관된 에러 응답과 명확한 에러 코드를 제공합니다.
+
+#### 1. ErrorCode Enum
+
+모든 도메인별 에러 코드를 중앙에서 관리합니다.
+
+```java
+// global/exception/ErrorCode.java
+@Getter
+@RequiredArgsConstructor
+public enum ErrorCode {
+    // Common (공통)
+    INTERNAL_SERVER_ERROR(500, "서버 오류가 발생했습니다."),
+    INVALID_INPUT_VALUE(400, "잘못된 입력값입니다."),
+    UNAUTHORIZED(401, "인증이 필요합니다."),
+    FORBIDDEN(403, "권한이 없습니다."),
+    
+    // User (사용자)
+    USER_NOT_FOUND(404, "사용자를 찾을 수 없습니다."),
+    DUPLICATE_USERNAME(409, "이미 존재하는 사용자명입니다."),
+    
+    // Todo (할 일)
+    TODO_NOT_FOUND(404, "TODO를 찾을 수 없습니다."),
+    TODO_ACCESS_DENIED(403, "TODO에 접근할 권한이 없습니다."),
+    
+    // Project (프로젝트)
+    PROJECT_NOT_FOUND(404, "프로젝트를 찾을 수 없습니다."),
+    PROJECT_NAME_DUPLICATE(409, "이미 존재하는 프로젝트명입니다."),
+    DEFAULT_PROJECT_DELETE_NOT_ALLOWED(400, "기본 프로젝트는 삭제할 수 없습니다.");
+    
+    private final int status;
+    private final String message;
+}
+```
+
+#### 2. BusinessException
+
+비즈니스 로직 예외를 위한 커스텀 예외 클래스입니다.
+
+```java
+// global/exception/BusinessException.java
+@Getter
+public class BusinessException extends RuntimeException {
+    private final ErrorCode errorCode;
+    
+    public BusinessException(ErrorCode errorCode) {
+        super(errorCode.getMessage());
+        this.errorCode = errorCode;
+    }
+    
+    public BusinessException(ErrorCode errorCode, String customMessage) {
+        super(customMessage);
+        this.errorCode = errorCode;
+    }
+}
+```
+
+#### 3. ErrorResponse DTO
+
+일관된 에러 응답 형식을 제공합니다.
+
+```java
+// global/common/dto/ErrorResponse.java
+@Getter
+@Builder
+public class ErrorResponse {
+    private boolean success;      // 항상 false
+    private int status;           // HTTP 상태 코드
+    private String message;       // 에러 메시지
+    private String code;          // 에러 코드 (enum 이름)
+    private LocalDateTime timestamp;  // 발생 시각
+}
+```
+
+**에러 응답 예시:**
+```json
+{
+  "success": false,
+  "status": 404,
+  "message": "TODO를 찾을 수 없습니다.",
+  "code": "TODO_NOT_FOUND",
+  "timestamp": "2025-12-12T10:30:00"
+}
+```
+
+#### 4. GlobalExceptionHandler
+
+모든 예외를 전역에서 처리합니다.
+
+```java
+@Slf4j
+@RestControllerAdvice
+public class GlobalExceptionHandler {
+    
+    // 비즈니스 예외 처리
+    @ExceptionHandler(BusinessException.class)
+    public ResponseEntity<ErrorResponse> handleBusinessException(BusinessException ex) {
+        log.warn("Business exception: code={}, message={}", ex.getErrorCode(), ex.getMessage());
+        ErrorResponse errorResponse = ErrorResponse.of(ex.getErrorCode());
+        return ResponseEntity.status(ex.getStatus()).body(errorResponse);
+    }
+    
+    // Bean Validation 예외 처리
+    @ExceptionHandler(MethodArgumentNotValidException.class)
+    public ResponseEntity<ApiResponse<Map<String, String>>> handleValidationExceptions(...) {
+        // 필드별 검증 에러 처리
+    }
+    
+    // Spring Security 접근 거부 예외
+    @ExceptionHandler(AccessDeniedException.class)
+    public ResponseEntity<ErrorResponse> handleAccessDeniedException(...) {
+        // 403 Forbidden 처리
+    }
+    
+    // 전역 예외 처리 (최종 방어선)
+    @ExceptionHandler(Exception.class)
+    public ResponseEntity<ErrorResponse> handleException(Exception ex) {
+        log.error("Unexpected error occurred", ex);
+        return ResponseEntity.status(500).body(ErrorResponse.of(ErrorCode.INTERNAL_SERVER_ERROR));
+    }
+}
+```
+
+#### 5. Service 계층에서의 사용
+
+```java
+// TodoService.java
+public TodoResponse getTodo(Long userId, Long todoId) {
+    Todo todo = todoRepository.findByIdAndUserId(todoId, userId)
+            .orElseThrow(() -> new BusinessException(ErrorCode.TODO_NOT_FOUND));
+    return TodoResponse.from(todo);
+}
+
+// AuthService.java
+public AuthResponse signup(SignupRequest request) {
+    if (userRepository.existsByUsername(request.getUsername())) {
+        throw new BusinessException(ErrorCode.DUPLICATE_USERNAME);
+    }
+    // 회원가입 로직...
+}
+
+// ProjectService.java
+public void deleteProject(Long projectId, User user) {
+    Project project = projectRepository.findByIdAndUser(projectId, user)
+            .orElseThrow(() -> new BusinessException(ErrorCode.PROJECT_NOT_FOUND));
+    
+    if (Boolean.TRUE.equals(project.getIsDefault())) {
+        throw new BusinessException(ErrorCode.DEFAULT_PROJECT_DELETE_NOT_ALLOWED);
+    }
+    // 삭제 로직...
+}
+```
+
+#### 6. 새로운 예외 추가 방법
+
+**Step 1: ErrorCode에 추가**
+```java
+// ErrorCode.java
+FILE_UPLOAD_FAILED(400, "파일 업로드에 실패했습니다."),
+FILE_SIZE_EXCEEDED(413, "파일 크기가 제한을 초과했습니다."),
+```
+
+**Step 2: Service에서 사용**
+```java
+if (file.getSize() > MAX_FILE_SIZE) {
+    throw new BusinessException(ErrorCode.FILE_SIZE_EXCEEDED);
+}
+```
+
+**Step 3: (선택) 특정 예외 핸들러 추가**
+```java
+// GlobalExceptionHandler.java
+@ExceptionHandler(MaxUploadSizeExceededException.class)
+public ResponseEntity<ErrorResponse> handleFileSizeException(Exception ex) {
+    ErrorResponse errorResponse = ErrorResponse.of(ErrorCode.FILE_SIZE_EXCEEDED);
+    return ResponseEntity.status(HttpStatus.PAYLOAD_TOO_LARGE).body(errorResponse);
+}
+```
+
+### 예외 처리 시스템의 장점
+
+✅ **타입 안전성**: ErrorCode enum으로 컴파일 타임 검증  
+✅ **일관성**: 모든 API가 동일한 에러 형식 반환  
+✅ **명확성**: 에러 코드로 클라이언트가 에러를 쉽게 구분  
+✅ **유지보수성**: 에러 메시지 중앙 관리  
+✅ **로깅**: 예외 발생 시 자동 로깅  
+✅ **확장성**: 새로운 에러 코드 추가가 간단함  
+✅ **국제화 지원**: 에러 코드 기반으로 다국어 메시지 제공 가능
 
 ## 🔄 Git 워크플로우
 

@@ -5,6 +5,8 @@ import com.TodoApp.backend.domain.auth.dto.LoginRequest;
 import com.TodoApp.backend.domain.auth.dto.SignupRequest;
 import com.TodoApp.backend.domain.user.entity.User;
 import com.TodoApp.backend.domain.user.repository.UserRepository;
+import com.TodoApp.backend.global.exception.BusinessException;
+import com.TodoApp.backend.global.exception.ErrorCode;
 import com.TodoApp.backend.global.security.JwtUtil;
 import lombok.RequiredArgsConstructor;
 import org.springframework.security.authentication.AuthenticationManager;
@@ -28,12 +30,12 @@ public class AuthService {
     public AuthResponse signup(SignupRequest request) {
         // 사용자 이름 중복 확인
         if (userRepository.existsByUsername(request.getUsername())) {
-            throw new RuntimeException("이미 사용 중인 사용자 이름입니다");
+            throw new BusinessException(ErrorCode.DUPLICATE_USERNAME);
         }
 
         // 이메일 중복 확인
         if (userRepository.existsByEmail(request.getEmail())) {
-            throw new RuntimeException("이미 사용 중인 이메일입니다");
+            throw new BusinessException(ErrorCode.DUPLICATE_USERNAME, "이미 사용 중인 이메일입니다");
         }
 
         // 사용자 생성
@@ -71,7 +73,7 @@ public class AuthService {
         // 인증된 사용자 정보 가져오기
         UserDetails userDetails = (UserDetails) authentication.getPrincipal();
         User user = userRepository.findByUsername(userDetails.getUsername())
-                .orElseThrow(() -> new RuntimeException("사용자를 찾을 수 없습니다"));
+                .orElseThrow(() -> new BusinessException(ErrorCode.USER_NOT_FOUND));
 
         // JWT 토큰 생성
         String token = jwtUtil.generateToken(userDetails);

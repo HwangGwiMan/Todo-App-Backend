@@ -58,6 +58,21 @@ public interface TodoRepository extends JpaRepository<Todo, Long>, TodoRepositor
     // 사용자별 프로젝트가 null인 TODO 개수
     long countByUserAndProjectIdIsNull(User user);
     
+    /**
+     * 사용자별 프로젝트 ID로 그룹화한 TODO 개수 조회
+     * N+1 문제 해결을 위한 메서드
+     * 
+     * @param userId 사용자 ID
+     * @return 프로젝트 ID별 TODO 개수 목록
+     */
+    @Query("""
+        SELECT t.projectId as projectId, COUNT(t) as count
+        FROM Todo t 
+        WHERE t.user.id = :userId 
+        GROUP BY t.projectId
+        """)
+    List<TodoCountByProject> countByUserGroupByProjectId(@Param("userId") Long userId);
+    
     // 프로젝트 ID를 null로 업데이트 (프로젝트 삭제 시)
     @Modifying
     @Query("UPDATE Todo t SET t.projectId = null WHERE t.projectId = :projectId")

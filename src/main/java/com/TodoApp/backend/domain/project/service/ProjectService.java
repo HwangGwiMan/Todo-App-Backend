@@ -6,11 +6,14 @@ import com.TodoApp.backend.domain.project.entity.Project;
 import com.TodoApp.backend.domain.project.repository.ProjectRepository;
 import com.TodoApp.backend.domain.todo.repository.TodoRepository;
 import com.TodoApp.backend.domain.user.entity.User;
+import com.TodoApp.backend.global.exception.BusinessException;
+import com.TodoApp.backend.global.exception.ErrorCode;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.util.List;
+import java.util.Map;
 import java.util.stream.Collectors;
 
 /**
@@ -26,13 +29,25 @@ public class ProjectService {
 
     /**
      * 사용자별 프로젝트 목록 조회
+     * N+1 문제 해결: 모든 프로젝트의 TODO 개수를 한 번의 쿼리로 조회
      */
     public List<ProjectResponse> getProjectsByUser(User user) {
+        // 1. 사용자의 모든 프로젝트 조회 (1 query)
         List<Project> projects = projectRepository.findByUserOrderByPositionAscCreatedAtAsc(user);
         
+        // 2. 사용자의 모든 TODO를 프로젝트별로 그룹화하여 개수 조회 (1 query)
+        Map<Long, Long> todoCountMap = todoRepository
+                .countByUserGroupByProjectId(user.getId())
+                .stream()
+                .collect(Collectors.toMap(
+                        result -> result.getProjectId(),
+                        result -> result.getCount()
+                ));
+        
+        // 3. 프로젝트와 TODO 개수 매핑 (메모리 작업)
         return projects.stream()
                 .map(project -> {
-                    Long todoCount = todoRepository.countByUserAndProjectId(user, project.getId());
+                    Long todoCount = todoCountMap.getOrDefault(project.getId(), 0L);
                     return ProjectResponse.fromWithTodoCount(project, todoCount);
                 })
                 .collect(Collectors.toList());
@@ -43,7 +58,7 @@ public class ProjectService {
      */
     public ProjectResponse getProject(Long projectId, User user) {
         Project project = projectRepository.findByIdAndUser(projectId, user)
-                .orElseThrow(() -> new IllegalArgumentException("프로젝트를 찾을 수 없습니다."));
+                .orElseThrow(() -> new BusinessException(ErrorCode.PROJECT_NOT_FOUND));
         
         Long todoCount = todoRepository.countByUserAndProjectId(user, projectId);
         return ProjectResponse.fromWithTodoCount(project, todoCount);
@@ -56,7 +71,7 @@ public class ProjectService {
     public ProjectResponse createProject(ProjectRequest request, User user) {
         // 프로젝트명 중복 체크
         if (projectRepository.existsByUserAndName(user, request.getName())) {
-            throw new IllegalArgumentException("이미 존재하는 프로젝트명입니다.");
+            throw new BusinessException(ErrorCode.PROJECT_NAME_DUPLICATE);
         }
 
         // 기본 프로젝트 설정 시 기존 기본 프로젝트 해제
@@ -93,11 +108,11 @@ public class ProjectService {
     @Transactional
     public ProjectResponse updateProject(Long projectId, ProjectRequest request, User user) {
         Project project = projectRepository.findByIdAndUser(projectId, user)
-                .orElseThrow(() -> new IllegalArgumentException("프로젝트를 찾을 수 없습니다."));
+                .orElseThrow(() -> new BusinessException(ErrorCode.PROJECT_NOT_FOUND));
 
         // 프로젝트명 중복 체크 (자신 제외)
         if (projectRepository.existsByUserAndNameExcludingId(user, request.getName(), projectId)) {
-            throw new IllegalArgumentException("이미 존재하는 프로젝트명입니다.");
+            throw new BusinessException(ErrorCode.PROJECT_NAME_DUPLICATE);
         }
 
         // 기본 프로젝트 설정 시 기존 기본 프로젝트 해제
@@ -134,11 +149,11 @@ public class ProjectService {
     @Transactional
     public void deleteProject(Long projectId, User user) {
         Project project = projectRepository.findByIdAndUser(projectId, user)
-                .orElseThrow(() -> new IllegalArgumentException("프로젝트를 찾을 수 없습니다."));
+                .orElseThrow(() -> new BusinessException(ErrorCode.PROJECT_NOT_FOUND));
 
         // 기본 프로젝트는 삭제할 수 없음
         if (Boolean.TRUE.equals(project.getIsDefault())) {
-            throw new IllegalArgumentException("기본 프로젝트는 삭제할 수 없습니다.");
+            throw new BusinessException(ErrorCode.DEFAULT_PROJECT_DELETE_NOT_ALLOWED);
         }
 
         // 프로젝트 내 모든 TODO의 projectId를 null로 변경
