@@ -20,7 +20,7 @@ spring:
     hibernate:
       # 운영 환경에서는 절대로 update나 create를 사용하지 않습니다.
       # 첫 배포 시에만 update 사용, 이후 validate로 변경
-      ddl-auto: validate
+      ddl-auto: update
     show-sql: false # 성능 보안을 위해 쿼리 로깅 비활성화
     properties:
       hibernate:
