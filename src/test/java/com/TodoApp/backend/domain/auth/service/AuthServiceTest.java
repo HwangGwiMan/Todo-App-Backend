@@ -111,7 +111,7 @@ class AuthServiceTest {
         // When & Then
         assertThatThrownBy(() -> authService.signup(signupRequest))
                 .isInstanceOf(RuntimeException.class)
-                .hasMessage("이미 사용 중인 사용자 이름입니다");
+                .hasMessage("이미 존재하는 사용자명입니다.");
 
         verify(userRepository).existsByUsername("testuser");
         verify(userRepository, never()).existsByEmail(anyString());
@@ -192,7 +192,7 @@ class AuthServiceTest {
         // When & Then
         assertThatThrownBy(() -> authService.login(loginRequest))
                 .isInstanceOf(RuntimeException.class)
-                .hasMessage("사용자를 찾을 수 없습니다");
+                .hasMessage("사용자를 찾을 수 없습니다.");
 
         verify(authenticationManager).authenticate(any(UsernamePasswordAuthenticationToken.class));
         verify(userRepository).findByUsername("testuser");

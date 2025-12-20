@@ -9,6 +9,7 @@ import com.TodoApp.backend.domain.user.entity.User;
 import com.TodoApp.backend.domain.user.repository.UserRepository;
 import com.TodoApp.backend.fixture.TodoFixture;
 import com.TodoApp.backend.fixture.UserFixture;
+import com.TodoApp.backend.global.exception.BusinessException;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -123,8 +124,8 @@ class TodoServiceTest {
 
         // When & Then
         assertThatThrownBy(() -> todoService.getTodo(1L, 1L))
-                .isInstanceOf(RuntimeException.class)
-                .hasMessage("TODO를 찾을 수 없거나 권한이 없습니다.");
+                .isInstanceOf(BusinessException.class)
+                .hasMessage("TODO를 찾을 수 없습니다.");
 
         verify(todoRepository).findByIdAndUserId(1L, 1L);
     }
@@ -153,7 +154,7 @@ class TodoServiceTest {
         // Then
         assertThat(response).isNotNull();
         assertThat(response.getContent()).hasSize(3);
-        verify(userRepository).findById(testUser.getId());
+        verify(userRepository, times(2)).findById(testUser.getId());
         verify(todoRepository).findByUserId(eq(testUser.getId()), any(Pageable.class));
     }
 
@@ -179,7 +180,7 @@ class TodoServiceTest {
         // Then
         assertThat(response).isNotNull();
         assertThat(response.getContent()).hasSize(1);
-        verify(userRepository).findById(1L);
+        verify(userRepository, times(2)).findById(1L);
         verify(todoRepository).searchByKeyword(eq(1L), eq("테스트"), any(Pageable.class));
     }
 
@@ -206,7 +207,7 @@ class TodoServiceTest {
         // Then
         assertThat(response).isNotNull();
         assertThat(response.getContent()).hasSize(1);
-        verify(userRepository).findById(1L);
+        verify(userRepository, times(2)).findById(1L);
         verify(todoRepository).findByUserIdAndStatus(eq(1L), eq(Todo.TodoStatus.TODO), any(Pageable.class));
     }
 
@@ -233,7 +234,7 @@ class TodoServiceTest {
         // Then
         assertThat(response).isNotNull();
         assertThat(response.getContent()).hasSize(1);
-        verify(userRepository).findById(1L);
+        verify(userRepository, times(2)).findById(1L);
         verify(todoRepository).findByUserIdAndPriority(eq(1L), eq(Todo.Priority.HIGH), any(Pageable.class));
     }
 
@@ -264,7 +265,7 @@ class TodoServiceTest {
         // Then
         assertThat(response).isNotNull();
         assertThat(response.getContent()).hasSize(1);
-        verify(userRepository).findById(1L);
+        verify(userRepository, times(2)).findById(1L);
         verify(todoRepository).findByUserIdAndDueDateBetween(eq(1L), eq(startDate), eq(endDate), any(Pageable.class));
     }
 
@@ -291,7 +292,7 @@ class TodoServiceTest {
         // Then
         assertThat(response).isNotNull();
         assertThat(response.getContent()).hasSize(1);
-        verify(userRepository).findById(1L);
+        verify(userRepository, times(2)).findById(1L);
         verify(todoRepository).findByUserAndProjectId(eq(testUser), eq(1L), any(Pageable.class));
     }
 
@@ -341,8 +342,8 @@ class TodoServiceTest {
 
         // When & Then
         assertThatThrownBy(() -> todoService.updateTodo(1L, 1L, updateRequest))
-                .isInstanceOf(RuntimeException.class)
-                .hasMessage("TODO를 찾을 수 없거나 권한이 없습니다.");
+                .isInstanceOf(BusinessException.class)
+                .hasMessage("TODO를 찾을 수 없습니다.");
 
         verify(todoRepository).findByIdAndUserId(1L, 1L);
         verify(todoRepository, never()).save(any(Todo.class));

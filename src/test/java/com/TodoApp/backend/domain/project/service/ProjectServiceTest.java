@@ -3,8 +3,10 @@ package com.TodoApp.backend.domain.project.service;
 import com.TodoApp.backend.domain.project.dto.ProjectRequest;
 import com.TodoApp.backend.domain.project.entity.Project;
 import com.TodoApp.backend.domain.project.repository.ProjectRepository;
+import com.TodoApp.backend.domain.todo.repository.TodoCountByProject;
 import com.TodoApp.backend.domain.todo.repository.TodoRepository;
 import com.TodoApp.backend.domain.user.entity.User;
+import com.TodoApp.backend.global.exception.BusinessException;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -78,9 +80,20 @@ class ProjectServiceTest {
         project2.setId(2L);
 
         List<Project> projects = Arrays.asList(testProject, project2);
+        
+        // TodoCountByProject Mock 객체 생성
+        TodoCountByProject todoCount1 = mock(TodoCountByProject.class);
+        when(todoCount1.getProjectId()).thenReturn(1L);
+        when(todoCount1.getCount()).thenReturn(5L);
+        
+        TodoCountByProject todoCount2 = mock(TodoCountByProject.class);
+        when(todoCount2.getProjectId()).thenReturn(2L);
+        when(todoCount2.getCount()).thenReturn(3L);
+        
+        List<TodoCountByProject> todoCountList = Arrays.asList(todoCount1, todoCount2);
+        
         when(projectRepository.findByUserOrderByPositionAscCreatedAtAsc(testUser)).thenReturn(projects);
-        when(todoRepository.countByUserAndProjectId(testUser, 1L)).thenReturn(5L);
-        when(todoRepository.countByUserAndProjectId(testUser, 2L)).thenReturn(3L);
+        when(todoRepository.countByUserGroupByProjectId(1L)).thenReturn(todoCountList);
 
         // When
         List<com.TodoApp.backend.domain.project.dto.ProjectResponse> response = projectService.getProjectsByUser(testUser);
@@ -90,8 +103,10 @@ class ProjectServiceTest {
         assertThat(response).hasSize(2);
         assertThat(response.get(0).getName()).isEqualTo("테스트 프로젝트");
         assertThat(response.get(0).getTodoCount()).isEqualTo(5L);
+        assertThat(response.get(1).getName()).isEqualTo("프로젝트 2");
+        assertThat(response.get(1).getTodoCount()).isEqualTo(3L);
         verify(projectRepository).findByUserOrderByPositionAscCreatedAtAsc(testUser);
-        verify(todoRepository, times(2)).countByUserAndProjectId(any(User.class), anyLong());
+        verify(todoRepository).countByUserGroupByProjectId(1L);
     }
 
     @Test
@@ -120,7 +135,7 @@ class ProjectServiceTest {
 
         // When & Then
         assertThatThrownBy(() -> projectService.getProject(1L, testUser))
-                .isInstanceOf(IllegalArgumentException.class)
+                .isInstanceOf(BusinessException.class)
                 .hasMessage("프로젝트를 찾을 수 없습니다.");
 
         verify(projectRepository).findByIdAndUser(1L, testUser);
@@ -162,7 +177,7 @@ class ProjectServiceTest {
 
         // When & Then
         assertThatThrownBy(() -> projectService.createProject(projectRequest, testUser))
-                .isInstanceOf(IllegalArgumentException.class)
+                .isInstanceOf(BusinessException.class)
                 .hasMessage("이미 존재하는 프로젝트명입니다.");
 
         verify(projectRepository).existsByUserAndName(testUser, "새로운 프로젝트");
@@ -254,7 +269,7 @@ class ProjectServiceTest {
 
         // When & Then
         assertThatThrownBy(() -> projectService.updateProject(1L, updateRequest, testUser))
-                .isInstanceOf(IllegalArgumentException.class)
+                .isInstanceOf(BusinessException.class)
                 .hasMessage("이미 존재하는 프로젝트명입니다.");
 
         verify(projectRepository).findByIdAndUser(1L, testUser);
@@ -294,7 +309,7 @@ class ProjectServiceTest {
 
         // When & Then
         assertThatThrownBy(() -> projectService.deleteProject(1L, testUser))
-                .isInstanceOf(IllegalArgumentException.class)
+                .isInstanceOf(BusinessException.class)
                 .hasMessage("기본 프로젝트는 삭제할 수 없습니다.");
 
         verify(projectRepository).findByIdAndUser(1L, testUser);

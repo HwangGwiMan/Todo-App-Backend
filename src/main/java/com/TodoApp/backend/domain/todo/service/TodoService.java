@@ -10,6 +10,7 @@ import com.TodoApp.backend.domain.user.entity.User;
 import com.TodoApp.backend.domain.user.repository.UserRepository;
 import com.TodoApp.backend.global.exception.BusinessException;
 import com.TodoApp.backend.global.exception.ErrorCode;
+import com.TodoApp.backend.domain.todo.repository.specification.TodoSpecification;
 
 import lombok.NonNull;
 import lombok.RequiredArgsConstructor;
@@ -20,6 +21,8 @@ import org.springframework.data.domain.Pageable;
 import org.springframework.data.domain.Sort;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.data.jpa.domain.Specification;
+
 
 import java.time.LocalDateTime;
 import java.util.List;
@@ -69,15 +72,30 @@ public class TodoService {
         return TodoResponse.from(todo);
     }
 
-    /**
-     * TODO 목록 조회 (검색, 필터링, 정렬, 페이징)
-     */
     public Page<TodoResponse> getTodos(@NonNull Long userId, TodoSearchRequest searchRequest) {
-        Pageable pageable = createPageable(searchRequest);
-        User user = userRepository.findById(userId)
+        // 사용자 존재 확인
+        userRepository.findById(userId)
                 .orElseThrow(() -> new BusinessException(ErrorCode.USER_NOT_FOUND));
 
-        Page<Todo> todos;
+        // Specification 조합
+        Specification<Todo> spec = TodoSpecification
+                .hasUserId(userId)
+                .and(TodoSpecification.hasKeyword(searchRequest.getKeyword()))
+                .and(TodoSpecification.hasStatus(searchRequest.getStatus()))
+                .and(TodoSpecification.hasPriority(searchRequest.getPriority()))
+                .and(TodoSpecification.hasProjectId(searchRequest.getProjectId()))
+                .and(TodoSpecification.dueDateBetween(
+                        searchRequest.getDueDateStart(),
+                        searchRequest.getDueDateEnd()
+                ));
+
+        // Pageable 생성 (정렬 포함)
+        Pageable pageable = createPageable(searchRequest);
+
+        // Specification을 사용한 동적 쿼리 실행
+        Page<Todo> todos = todoRepository.findAll(spec, pageable);
+        User user = userRepository.findById(userId)
+                .orElseThrow(() -> new BusinessException(ErrorCode.USER_NOT_FOUND));
 
         // 프로젝트 필터 처리
         if (searchRequest.getProjectId() != null) {
