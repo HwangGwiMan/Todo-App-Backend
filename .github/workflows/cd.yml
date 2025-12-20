@@ -59,11 +59,11 @@ jobs:
       - name: Deploy to EC2
         uses: appleboy/ssh-action@master
         with:
-          host: ${{ secrets.EC2_HOST }}
-          username: ${{ secrets.EC2_USER }}
-          key: ${{ secrets.EC2_SSH_KEY }}
+          host: ${{ secrets.NCP_HOST }}
+          username: ${{ secrets.NCP_USER }}
+          key: ${{ secrets.NCP_SSH_KEY }}
           script: |
-            cd /home/${{ secrets.EC2_USER }}/app
+            cd /${{ secrets.NCP_USER }}/app
             
             # 백엔드 이미지 Pull
             docker compose pull backend
