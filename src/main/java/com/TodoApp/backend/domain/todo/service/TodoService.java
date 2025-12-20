@@ -94,11 +94,8 @@ public class TodoService {
 
         // Specification을 사용한 동적 쿼리 실행
         Page<Todo> todos = todoRepository.findAll(spec, pageable);
-        Pageable pageable = createPageable(searchRequest);
         User user = userRepository.findById(userId)
                 .orElseThrow(() -> new BusinessException(ErrorCode.USER_NOT_FOUND));
-
-        Page<Todo> todos;
 
         // 프로젝트 필터 처리
         if (searchRequest.getProjectId() != null) {
