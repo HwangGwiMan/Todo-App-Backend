@@ -78,8 +78,8 @@ public class TodoService {
                 .orElseThrow(() -> new BusinessException(ErrorCode.USER_NOT_FOUND));
 
         // Specification 조합
-        Specification<Todo> spec = TodoSpecification
-                .hasUserId(userId)
+        Specification<Todo> spec = Specification
+                .where(TodoSpecification.hasUserId(userId))
                 .and(TodoSpecification.hasKeyword(searchRequest.getKeyword()))
                 .and(TodoSpecification.hasStatus(searchRequest.getStatus()))
                 .and(TodoSpecification.hasPriority(searchRequest.getPriority()))
@@ -94,41 +94,6 @@ public class TodoService {
 
         // Specification을 사용한 동적 쿼리 실행
         Page<Todo> todos = todoRepository.findAll(spec, pageable);
-        User user = userRepository.findById(userId)
-                .orElseThrow(() -> new BusinessException(ErrorCode.USER_NOT_FOUND));
-
-        // 프로젝트 필터 처리
-        if (searchRequest.getProjectId() != null) {
-            // 프로젝트별 TODO 조회
-            todos = todoRepository.findByUserAndProjectId(user, searchRequest.getProjectId(), pageable);
-        } else {
-            // 키워드 검색
-            String keyword = searchRequest.getKeyword();
-            if (keyword != null && !keyword.isEmpty()) {
-                todos = todoRepository.searchByKeyword(userId, keyword, pageable);
-            }
-            // 상태 필터
-            else if (searchRequest.getStatus() != null) {
-                todos = todoRepository.findByUserIdAndStatus(userId, searchRequest.getStatus(), pageable);
-            }
-            // 우선순위 필터
-            else if (searchRequest.getPriority() != null) {
-                todos = todoRepository.findByUserIdAndPriority(userId, searchRequest.getPriority(), pageable);
-            }
-            // 마감일 범위 필터
-            else if (searchRequest.getDueDateStart() != null && searchRequest.getDueDateEnd() != null) {
-                todos = todoRepository.findByUserIdAndDueDateBetween(
-                        userId,
-                        searchRequest.getDueDateStart(),
-                        searchRequest.getDueDateEnd(),
-                        pageable
-                );
-            }
-            // 전체 조회
-            else {
-                todos = todoRepository.findByUserId(userId, pageable);
-            }
-        }
 
         return todos.map(TodoResponse::from);
     }

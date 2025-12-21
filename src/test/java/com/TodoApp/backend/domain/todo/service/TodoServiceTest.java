@@ -20,6 +20,7 @@ import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageImpl;
 import org.springframework.data.domain.Pageable;
+import org.springframework.data.jpa.domain.Specification;
 
 import java.time.LocalDateTime;
 import java.util.Arrays;
@@ -146,7 +147,7 @@ class TodoServiceTest {
         Page<Todo> todoPage = new PageImpl<>(todos);
         
         when(userRepository.findById(testUser.getId())).thenReturn(Optional.of(testUser));
-        when(todoRepository.findByUserId(eq(testUser.getId()), any(Pageable.class))).thenReturn(todoPage);
+        when(todoRepository.findAll(any(Specification.class), any(Pageable.class))).thenReturn(todoPage);
 
         // When
         Page<com.TodoApp.backend.domain.todo.dto.TodoResponse> response = todoService.getTodos(testUser.getId(), searchRequest);
@@ -154,8 +155,8 @@ class TodoServiceTest {
         // Then
         assertThat(response).isNotNull();
         assertThat(response.getContent()).hasSize(3);
-        verify(userRepository, times(2)).findById(testUser.getId());
-        verify(todoRepository).findByUserId(eq(testUser.getId()), any(Pageable.class));
+        verify(userRepository).findById(testUser.getId());
+        verify(todoRepository).findAll(any(Specification.class), any(Pageable.class));
     }
 
     @Test
@@ -172,7 +173,7 @@ class TodoServiceTest {
 
         Page<Todo> todoPage = new PageImpl<>(Arrays.asList(testTodo));
         when(userRepository.findById(1L)).thenReturn(Optional.of(testUser));
-        when(todoRepository.searchByKeyword(eq(1L), eq("테스트"), any(Pageable.class))).thenReturn(todoPage);
+        when(todoRepository.findAll(any(Specification.class), any(Pageable.class))).thenReturn(todoPage);
 
         // When
         Page<com.TodoApp.backend.domain.todo.dto.TodoResponse> response = todoService.getTodos(1L, searchRequest);
@@ -180,8 +181,8 @@ class TodoServiceTest {
         // Then
         assertThat(response).isNotNull();
         assertThat(response.getContent()).hasSize(1);
-        verify(userRepository, times(2)).findById(1L);
-        verify(todoRepository).searchByKeyword(eq(1L), eq("테스트"), any(Pageable.class));
+        verify(userRepository).findById(1L);
+        verify(todoRepository).findAll(any(Specification.class), any(Pageable.class));
     }
 
     @Test
@@ -198,8 +199,7 @@ class TodoServiceTest {
 
         Page<Todo> todoPage = new PageImpl<>(Arrays.asList(testTodo));
         when(userRepository.findById(1L)).thenReturn(Optional.of(testUser));
-        when(todoRepository.findByUserIdAndStatus(eq(1L), eq(Todo.TodoStatus.TODO), any(Pageable.class)))
-                .thenReturn(todoPage);
+        when(todoRepository.findAll(any(Specification.class), any(Pageable.class))).thenReturn(todoPage);
 
         // When
         Page<com.TodoApp.backend.domain.todo.dto.TodoResponse> response = todoService.getTodos(1L, searchRequest);
@@ -207,8 +207,8 @@ class TodoServiceTest {
         // Then
         assertThat(response).isNotNull();
         assertThat(response.getContent()).hasSize(1);
-        verify(userRepository, times(2)).findById(1L);
-        verify(todoRepository).findByUserIdAndStatus(eq(1L), eq(Todo.TodoStatus.TODO), any(Pageable.class));
+        verify(userRepository).findById(1L);
+        verify(todoRepository).findAll(any(Specification.class), any(Pageable.class));
     }
 
     @Test
@@ -225,8 +225,7 @@ class TodoServiceTest {
 
         Page<Todo> todoPage = new PageImpl<>(Arrays.asList(testTodo));
         when(userRepository.findById(1L)).thenReturn(Optional.of(testUser));
-        when(todoRepository.findByUserIdAndPriority(eq(1L), eq(Todo.Priority.HIGH), any(Pageable.class)))
-                .thenReturn(todoPage);
+        when(todoRepository.findAll(any(Specification.class), any(Pageable.class))).thenReturn(todoPage);
 
         // When
         Page<com.TodoApp.backend.domain.todo.dto.TodoResponse> response = todoService.getTodos(1L, searchRequest);
@@ -234,8 +233,8 @@ class TodoServiceTest {
         // Then
         assertThat(response).isNotNull();
         assertThat(response.getContent()).hasSize(1);
-        verify(userRepository, times(2)).findById(1L);
-        verify(todoRepository).findByUserIdAndPriority(eq(1L), eq(Todo.Priority.HIGH), any(Pageable.class));
+        verify(userRepository).findById(1L);
+        verify(todoRepository).findAll(any(Specification.class), any(Pageable.class));
     }
 
     @Test
@@ -256,8 +255,7 @@ class TodoServiceTest {
 
         Page<Todo> todoPage = new PageImpl<>(Arrays.asList(testTodo));
         when(userRepository.findById(1L)).thenReturn(Optional.of(testUser));
-        when(todoRepository.findByUserIdAndDueDateBetween(eq(1L), eq(startDate), eq(endDate), any(Pageable.class)))
-                .thenReturn(todoPage);
+        when(todoRepository.findAll(any(Specification.class), any(Pageable.class))).thenReturn(todoPage);
 
         // When
         Page<com.TodoApp.backend.domain.todo.dto.TodoResponse> response = todoService.getTodos(1L, searchRequest);
@@ -265,8 +263,8 @@ class TodoServiceTest {
         // Then
         assertThat(response).isNotNull();
         assertThat(response.getContent()).hasSize(1);
-        verify(userRepository, times(2)).findById(1L);
-        verify(todoRepository).findByUserIdAndDueDateBetween(eq(1L), eq(startDate), eq(endDate), any(Pageable.class));
+        verify(userRepository).findById(1L);
+        verify(todoRepository).findAll(any(Specification.class), any(Pageable.class));
     }
 
     @Test
@@ -283,8 +281,7 @@ class TodoServiceTest {
 
         Page<Todo> todoPage = new PageImpl<>(Arrays.asList(testTodo));
         when(userRepository.findById(1L)).thenReturn(Optional.of(testUser));
-        when(todoRepository.findByUserAndProjectId(eq(testUser), eq(1L), any(Pageable.class)))
-                .thenReturn(todoPage);
+        when(todoRepository.findAll(any(Specification.class), any(Pageable.class))).thenReturn(todoPage);
 
         // When
         Page<com.TodoApp.backend.domain.todo.dto.TodoResponse> response = todoService.getTodos(1L, searchRequest);
@@ -292,8 +289,8 @@ class TodoServiceTest {
         // Then
         assertThat(response).isNotNull();
         assertThat(response.getContent()).hasSize(1);
-        verify(userRepository, times(2)).findById(1L);
-        verify(todoRepository).findByUserAndProjectId(eq(testUser), eq(1L), any(Pageable.class));
+        verify(userRepository).findById(1L);
+        verify(todoRepository).findAll(any(Specification.class), any(Pageable.class));
     }
 
     @Test
