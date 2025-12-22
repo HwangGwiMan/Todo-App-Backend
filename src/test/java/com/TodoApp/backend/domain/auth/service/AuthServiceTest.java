@@ -5,6 +5,7 @@ import com.TodoApp.backend.domain.auth.dto.LoginRequest;
 import com.TodoApp.backend.domain.auth.dto.SignupRequest;
 import com.TodoApp.backend.domain.user.entity.User;
 import com.TodoApp.backend.domain.user.repository.UserRepository;
+import com.TodoApp.backend.global.exception.BusinessException;
 import com.TodoApp.backend.global.security.JwtUtil;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
@@ -110,7 +111,7 @@ class AuthServiceTest {
 
         // When & Then
         assertThatThrownBy(() -> authService.signup(signupRequest))
-                .isInstanceOf(RuntimeException.class)
+                .isInstanceOf(BusinessException.class)
                 .hasMessage("이미 존재하는 사용자명입니다.");
 
         verify(userRepository).existsByUsername("testuser");
@@ -127,7 +128,7 @@ class AuthServiceTest {
 
         // When & Then
         assertThatThrownBy(() -> authService.signup(signupRequest))
-                .isInstanceOf(RuntimeException.class)
+                .isInstanceOf(BusinessException.class)
                 .hasMessage("이미 사용 중인 이메일입니다");
 
         verify(userRepository).existsByUsername("testuser");
@@ -191,7 +192,7 @@ class AuthServiceTest {
 
         // When & Then
         assertThatThrownBy(() -> authService.login(loginRequest))
-                .isInstanceOf(RuntimeException.class)
+                .isInstanceOf(BusinessException.class)
                 .hasMessage("사용자를 찾을 수 없습니다.");
 
         verify(authenticationManager).authenticate(any(UsernamePasswordAuthenticationToken.class));

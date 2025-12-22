@@ -502,9 +502,17 @@ public class ErrorResponse {
   - [x] `IllegalArgumentException` 핸들러
 - [x] 모든 Service 클래스의 예외 코드 마이그레이션
 - [x] 커스텀 예외 핸들러 추가 예시 주석 작성
-- [ ] 테스트 코드 업데이트 (향후 작업)
+- [x] 테스트 코드 업데이트 (완료)
+  - [x] TodoServiceTest
+  - [x] ProjectServiceTest
+  - [x] AuthServiceTest
 
 **완료 시간:** 약 3시간
+
+**테스트 결과:**
+- ✅ 모든 단위 테스트 통과
+- ✅ 3개 Service 테스트 모두 BusinessException 사용
+- ✅ 예외 처리 일관성 100% 달성
 
 ---
 
