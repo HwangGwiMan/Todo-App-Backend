@@ -3,6 +3,7 @@ package com.TodoApp.backend.domain.project.service;
 import com.TodoApp.backend.domain.project.dto.ProjectRequest;
 import com.TodoApp.backend.domain.project.dto.ProjectResponse;
 import com.TodoApp.backend.domain.project.entity.Project;
+import com.TodoApp.backend.domain.project.mapper.ProjectMapper;
 import com.TodoApp.backend.domain.project.repository.ProjectRepository;
 import com.TodoApp.backend.domain.todo.repository.TodoRepository;
 import com.TodoApp.backend.domain.user.entity.User;
@@ -26,6 +27,7 @@ public class ProjectService {
 
     private final ProjectRepository projectRepository;
     private final TodoRepository todoRepository;
+    private final ProjectMapper projectMapper;
 
     /**
      * 사용자별 프로젝트 목록 조회
@@ -48,7 +50,7 @@ public class ProjectService {
         return projects.stream()
                 .map(project -> {
                     Long todoCount = todoCountMap.getOrDefault(project.getId(), 0L);
-                    return ProjectResponse.fromWithTodoCount(project, todoCount);
+                    return projectMapper.toDtoWithCount(project, todoCount);
                 })
                 .collect(Collectors.toList());
     }
@@ -61,7 +63,7 @@ public class ProjectService {
                 .orElseThrow(() -> new BusinessException(ErrorCode.PROJECT_NOT_FOUND));
         
         Long todoCount = todoRepository.countByUserAndProjectId(user, projectId);
-        return ProjectResponse.fromWithTodoCount(project, todoCount);
+        return projectMapper.toDtoWithCount(project, todoCount);
     }
 
     /**
@@ -89,17 +91,16 @@ public class ProjectService {
             nextPosition = projectRepository.findMaxPositionByUser(user) + 1;
         }
 
-        Project project = Project.builder()
-                .user(user)
-                .name(request.getName())
-                .description(request.getDescription())
-                .color(request.getColor() != null ? request.getColor() : "#3B82F6")
-                .isDefault(request.getIsDefault() != null ? request.getIsDefault() : false)
-                .position(nextPosition)
-                .build();
+        Project project = projectMapper.toEntity(request);
+        project.setUser(user);
+        project.setPosition(nextPosition);
+        
+        // 기본값 처리 (Mapper에서 처리하지만 명시적으로 필요한 경우)
+        if (project.getColor() == null) project.setColor("#3B82F6");
+        if (project.getIsDefault() == null) project.setIsDefault(false);
 
         Project savedProject = projectRepository.save(project);
-        return ProjectResponse.from(savedProject);
+        return projectMapper.toDtoWithCount(savedProject, 0L);
     }
 
     /**
@@ -124,23 +125,13 @@ public class ProjectService {
                     });
         }
 
-        // 프로젝트 정보 업데이트
-        project.setName(request.getName());
-        project.setDescription(request.getDescription());
-        if (request.getColor() != null) {
-            project.setColor(request.getColor());
-        }
-        if (request.getIsDefault() != null) {
-            project.setIsDefault(request.getIsDefault());
-        }
-        if (request.getPosition() != null) {
-            project.setPosition(request.getPosition());
-        }
+        // 프로젝트 정보 업데이트 (MapStruct 사용)
+        projectMapper.updateFromDto(request, project);
 
         Project updatedProject = projectRepository.save(project);
         Long todoCount = todoRepository.countByUserAndProjectId(user, projectId);
         
-        return ProjectResponse.fromWithTodoCount(updatedProject, todoCount);
+        return projectMapper.toDtoWithCount(updatedProject, todoCount);
     }
 
     /**
@@ -175,7 +166,7 @@ public class ProjectService {
         }
         
         Long todoCount = todoRepository.countByUserAndProjectId(user, project.getId());
-        return ProjectResponse.fromWithTodoCount(project, todoCount);
+        return projectMapper.toDtoWithCount(project, todoCount);
     }
 
     /**
@@ -198,6 +189,6 @@ public class ProjectService {
                 .build();
 
         Project savedProject = projectRepository.save(defaultProject);
-        return ProjectResponse.from(savedProject);
+        return projectMapper.toDtoWithCount(savedProject, 0L);
     }
 }

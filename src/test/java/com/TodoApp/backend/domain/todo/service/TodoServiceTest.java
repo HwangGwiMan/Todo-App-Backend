@@ -2,8 +2,10 @@ package com.TodoApp.backend.domain.todo.service;
 
 import com.TodoApp.backend.domain.todo.dto.TodoDashboardStatsResponse;
 import com.TodoApp.backend.domain.todo.dto.TodoRequest;
+import com.TodoApp.backend.domain.todo.dto.TodoResponse;
 import com.TodoApp.backend.domain.todo.dto.TodoSearchRequest;
 import com.TodoApp.backend.domain.todo.entity.Todo;
+import com.TodoApp.backend.domain.todo.mapper.TodoMapper;
 import com.TodoApp.backend.domain.todo.repository.TodoRepository;
 import com.TodoApp.backend.domain.user.entity.User;
 import com.TodoApp.backend.domain.user.repository.UserRepository;
@@ -32,6 +34,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.*;
 import static org.mockito.Mockito.*;
+import static org.mockito.Mockito.lenient;
 
 @ExtendWith(MockitoExtension.class)
 @DisplayName("TodoService 테스트")
@@ -45,6 +48,9 @@ class TodoServiceTest {
 
     @InjectMocks
     private TodoService todoService;
+
+    @Mock
+    private TodoMapper todoMapper;
 
     private User testUser;
     private Todo testTodo;
@@ -62,6 +68,52 @@ class TodoServiceTest {
                 .status(Todo.TodoStatus.TODO)
                 .priority(Todo.Priority.HIGH)
                 .build();
+
+        // Mapper stub 추가
+        lenient().when(todoMapper.toDto(any(Todo.class))).thenAnswer(invocation -> {
+            Todo todo = invocation.getArgument(0);
+            return TodoResponse.builder()
+                    .id(todo.getId())
+                    .userId(todo.getUser().getId())
+                    .username(todo.getUser().getUsername())
+                    .title(todo.getTitle())
+                    .description(todo.getDescription())
+                    .status(todo.getStatus() != null ? todo.getStatus().name() : null)
+                    .priority(todo.getPriority() != null ? todo.getPriority().name() : null)
+                    .dueDate(todo.getDueDate())
+                    .completedAt(todo.getCompletedAt())
+                    .position(todo.getPosition())
+                    .projectId(todo.getProjectId())
+                    .createdAt(todo.getCreatedAt())
+                    .updatedAt(todo.getUpdatedAt())
+                    .build();
+        });
+
+        lenient().when(todoMapper.toEntity(any(TodoRequest.class))).thenAnswer(invocation -> {
+            TodoRequest request = invocation.getArgument(0);
+            return Todo.builder()
+                    .title(request.getTitle())
+                    .description(request.getDescription())
+                    .status(request.getStatus())
+                    .priority(request.getPriority())
+                    .dueDate(request.getDueDate())
+                    .position(request.getPosition())
+                    .projectId(request.getProjectId())
+                    .build();
+        });
+
+        lenient().doAnswer(invocation -> {
+            TodoRequest request = invocation.getArgument(0);
+            Todo todo = invocation.getArgument(1);
+            if (request.getTitle() != null) todo.setTitle(request.getTitle());
+            if (request.getDescription() != null) todo.setDescription(request.getDescription());
+            if (request.getStatus() != null) todo.setStatus(request.getStatus());
+            if (request.getPriority() != null) todo.setPriority(request.getPriority());
+            if (request.getDueDate() != null) todo.setDueDate(request.getDueDate());
+            if (request.getPosition() != null) todo.setPosition(request.getPosition());
+            if (request.getProjectId() != null) todo.setProjectId(request.getProjectId());
+            return null;
+        }).when(todoMapper).updateFromDto(any(TodoRequest.class), any(Todo.class));
     }
 
     @Test

@@ -75,29 +75,4 @@ public class ProjectResponse {
             example = "5"
     )
     private Long todoCount;
-
-    /**
-     * Project 엔티티를 ProjectResponse로 변환
-     */
-    public static ProjectResponse from(Project project) {
-        return ProjectResponse.builder()
-                .id(project.getId())
-                .name(project.getName())
-                .description(project.getDescription())
-                .color(project.getColor())
-                .isDefault(project.getIsDefault())
-                .position(project.getPosition())
-                .createdAt(project.getCreatedAt())
-                .updatedAt(project.getUpdatedAt())
-                .build();
-    }
-
-    /**
-     * Project 엔티티와 TODO 개수를 포함한 ProjectResponse로 변환
-     */
-    public static ProjectResponse fromWithTodoCount(Project project, Long todoCount) {
-        ProjectResponse response = from(project);
-        response.setTodoCount(todoCount);
-        return response;
-    }
 }
