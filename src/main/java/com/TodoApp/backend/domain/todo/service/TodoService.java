@@ -10,6 +10,7 @@ import com.TodoApp.backend.domain.user.entity.User;
 import com.TodoApp.backend.domain.user.repository.UserRepository;
 import com.TodoApp.backend.global.exception.BusinessException;
 import com.TodoApp.backend.global.exception.ErrorCode;
+import com.TodoApp.backend.domain.todo.mapper.TodoMapper;
 import com.TodoApp.backend.domain.todo.repository.specification.TodoSpecification;
 
 import lombok.NonNull;
@@ -35,6 +36,7 @@ public class TodoService {
 
     private final TodoRepository todoRepository;
     private final UserRepository userRepository;
+    private final TodoMapper todoMapper;
     // DSLContext 제거 가능 (Repository에서 처리)
 
     /**
@@ -45,21 +47,18 @@ public class TodoService {
         User user = userRepository.findById(userId)
                 .orElseThrow(() -> new BusinessException(ErrorCode.USER_NOT_FOUND));
 
-        Todo todo = Todo.builder()
-                .user(user)
-                .title(request.getTitle())
-                .description(request.getDescription())
-                .status(request.getStatus() != null ? request.getStatus() : Todo.TodoStatus.TODO)
-                .priority(request.getPriority() != null ? request.getPriority() : Todo.Priority.MEDIUM)
-                .dueDate(request.getDueDate())
-                .position(request.getPosition() != null ? request.getPosition() : 0)
-                .projectId(request.getProjectId())
-                .build();
+        Todo todo = todoMapper.toEntity(request);
+        todo.setUser(user);
+        
+        // 기본값 설정 (TodoRequest에 없는 경우)
+        if (todo.getStatus() == null) todo.setStatus(Todo.TodoStatus.TODO);
+        if (todo.getPriority() == null) todo.setPriority(Todo.Priority.MEDIUM);
+        if (todo.getPosition() == null) todo.setPosition(0);
 
         Todo savedTodo = todoRepository.save(todo);
         log.info("TODO 생성 완료: userId={}, todoId={}", userId, savedTodo.getId());
 
-        return TodoResponse.from(savedTodo);
+        return todoMapper.toDto(savedTodo);
     }
 
     /**
@@ -69,7 +68,7 @@ public class TodoService {
         Todo todo = todoRepository.findByIdAndUserId(todoId, userId)
                 .orElseThrow(() -> new BusinessException(ErrorCode.TODO_NOT_FOUND));
 
-        return TodoResponse.from(todo);
+        return todoMapper.toDto(todo);
     }
 
     public Page<TodoResponse> getTodos(@NonNull Long userId, TodoSearchRequest searchRequest) {
@@ -94,43 +93,8 @@ public class TodoService {
 
         // Specification을 사용한 동적 쿼리 실행
         Page<Todo> todos = todoRepository.findAll(spec, pageable);
-        User user = userRepository.findById(userId)
-                .orElseThrow(() -> new BusinessException(ErrorCode.USER_NOT_FOUND));
 
-        // 프로젝트 필터 처리
-        if (searchRequest.getProjectId() != null) {
-            // 프로젝트별 TODO 조회
-            todos = todoRepository.findByUserAndProjectId(user, searchRequest.getProjectId(), pageable);
-        } else {
-            // 키워드 검색
-            String keyword = searchRequest.getKeyword();
-            if (keyword != null && !keyword.isEmpty()) {
-                todos = todoRepository.searchByKeyword(userId, keyword, pageable);
-            }
-            // 상태 필터
-            else if (searchRequest.getStatus() != null) {
-                todos = todoRepository.findByUserIdAndStatus(userId, searchRequest.getStatus(), pageable);
-            }
-            // 우선순위 필터
-            else if (searchRequest.getPriority() != null) {
-                todos = todoRepository.findByUserIdAndPriority(userId, searchRequest.getPriority(), pageable);
-            }
-            // 마감일 범위 필터
-            else if (searchRequest.getDueDateStart() != null && searchRequest.getDueDateEnd() != null) {
-                todos = todoRepository.findByUserIdAndDueDateBetween(
-                        userId,
-                        searchRequest.getDueDateStart(),
-                        searchRequest.getDueDateEnd(),
-                        pageable
-                );
-            }
-            // 전체 조회
-            else {
-                todos = todoRepository.findByUserId(userId, pageable);
-            }
-        }
-
-        return todos.map(TodoResponse::from);
+        return todos.map(todoMapper::toDto);
     }
 
     /**
@@ -141,32 +105,12 @@ public class TodoService {
         Todo todo = todoRepository.findByIdAndUserId(todoId, userId)
                 .orElseThrow(() -> new BusinessException(ErrorCode.TODO_NOT_FOUND));
 
-        // 수정 가능한 필드 업데이트
-        if (request.getTitle() != null) {
-            todo.setTitle(request.getTitle());
-        }
-        if (request.getDescription() != null) {
-            todo.setDescription(request.getDescription());
-        }
-        if (request.getStatus() != null) {
-            todo.setStatus(request.getStatus());
-        }
-        if (request.getPriority() != null) {
-            todo.setPriority(request.getPriority());
-        }
-        if (request.getDueDate() != null) {
-            todo.setDueDate(request.getDueDate());
-        }
-        if (request.getPosition() != null) {
-            todo.setPosition(request.getPosition());
-        }
-        if (request.getProjectId() != null) {
-            todo.setProjectId(request.getProjectId());
-        }
+        // 수정 가능한 필드 업데이트 (MapStruct 사용)
+        todoMapper.updateFromDto(request, todo);
 
         Todo updatedTodo = todoRepository.save(todo);
         log.info("TODO 수정 완료: userId={}, todoId={}", userId, todoId);
-        return TodoResponse.from(updatedTodo);
+        return todoMapper.toDto(updatedTodo);
     }
 
     /**
@@ -181,7 +125,7 @@ public class TodoService {
         Todo updatedTodo = todoRepository.save(todo);
         log.info("TODO 상태 변경: userId={}, todoId={}, status={}", userId, todoId, status);
 
-        return TodoResponse.from(updatedTodo);
+        return todoMapper.toDto(updatedTodo);
     }
 
     /**

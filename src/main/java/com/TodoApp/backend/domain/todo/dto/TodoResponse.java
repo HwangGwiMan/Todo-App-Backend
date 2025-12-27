@@ -62,24 +62,5 @@ public class TodoResponse {
 
     @Schema(description = "수정일", example = "2025-11-10T14:30:00")
     private Timestamp updatedAt;
-
-    // Entity -> DTO 변환
-    public static TodoResponse from(Todo todo) {
-        return TodoResponse.builder()
-                .id(todo.getId())
-                .userId(todo.getUser().getId())
-                .username(todo.getUser().getUsername())
-                .title(todo.getTitle())
-                .description(todo.getDescription())
-                .status(todo.getStatus() != null ? todo.getStatus().name() : null)
-                .priority(todo.getPriority() != null ? todo.getPriority().name() : null)
-                .dueDate(todo.getDueDate())
-                .completedAt(todo.getCompletedAt())
-                .position(todo.getPosition())
-                .projectId(todo.getProjectId())
-                .createdAt(todo.getCreatedAt())
-                .updatedAt(todo.getUpdatedAt())
-                .build();
-    }
 }
 

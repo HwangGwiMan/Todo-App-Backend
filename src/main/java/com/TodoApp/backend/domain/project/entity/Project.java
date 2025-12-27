@@ -3,11 +3,8 @@ package com.TodoApp.backend.domain.project.entity;
 import com.TodoApp.backend.domain.user.entity.User;
 import com.TodoApp.backend.global.entity.BaseEntity;
 import jakarta.persistence.*;
-import lombok.AllArgsConstructor;
-import lombok.Builder;
-import lombok.Data;
-import lombok.EqualsAndHashCode;
-import lombok.NoArgsConstructor;
+import lombok.*;
+import lombok.experimental.SuperBuilder;
 
 /**
  * 프로젝트 엔티티
@@ -19,7 +16,7 @@ import lombok.NoArgsConstructor;
 @EqualsAndHashCode(callSuper = true)
 @NoArgsConstructor
 @AllArgsConstructor
-@Builder
+@SuperBuilder
 public class Project extends BaseEntity {
 
     @ManyToOne(fetch = FetchType.LAZY)

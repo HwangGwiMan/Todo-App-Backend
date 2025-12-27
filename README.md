@@ -502,104 +502,69 @@ public class ErrorResponse {
   - [x] `IllegalArgumentException` 핸들러
 - [x] 모든 Service 클래스의 예외 코드 마이그레이션
 - [x] 커스텀 예외 핸들러 추가 예시 주석 작성
-- [ ] 테스트 코드 업데이트 (향후 작업)
+- [x] 테스트 코드 업데이트 (완료)
+  - [x] TodoServiceTest
+  - [x] ProjectServiceTest
+  - [x] AuthServiceTest
 
 **완료 시간:** 약 3시간
 
+**테스트 결과:**
+- ✅ 모든 단위 테스트 통과
+- ✅ 3개 Service 테스트 모두 BusinessException 사용
+- ✅ 예외 처리 일관성 100% 달성
+
 ---
 
-**2. Specification 패턴으로 동적 쿼리 개선 (5-6시간)**
+**2. Specification 패턴으로 동적 쿼리 개선 (완료) ✅**
 
-**현재 문제:**
-- `TodoService.getTodos`에 if-else 체인이 길어짐 (73-111줄)
-- 복합 필터 조합 지원이 어려움
-- 새로운 검색 조건 추가 시 메서드가 계속 비대해짐
-
-**구현 계획:**
+**구현 완료 내용:**
+- `TodoSpecification`: 동적 쿼리를 위한 검색 조건 정의
+- `TodoRepository`: `JpaSpecificationExecutor` 확장
+- `TodoService`: 복잡한 if-else 쿼리 로직을 Specification 조합으로 리팩토링
 
 ```java
 // domain/todo/repository/specification/TodoSpecification.java
 public class TodoSpecification {
-    
-    public static Specification<Todo> hasUserId(Long userId) {
-        return (root, query, cb) -> cb.equal(root.get("user").get("id"), userId);
-    }
-    
-    public static Specification<Todo> hasKeyword(String keyword) {
-        return (root, query, cb) -> {
-            if (keyword == null || keyword.isEmpty()) return null;
-            String pattern = "%" + keyword + "%";
-            return cb.or(
-                cb.like(root.get("title"), pattern),
-                cb.like(root.get("description"), pattern)
-            );
-        };
-    }
-    
-    public static Specification<Todo> hasStatus(Todo.TodoStatus status) {
-        return (root, query, cb) -> 
-            status != null ? cb.equal(root.get("status"), status) : null;
-    }
-    
-    public static Specification<Todo> hasPriority(Todo.Priority priority) {
-        return (root, query, cb) -> 
-            priority != null ? cb.equal(root.get("priority"), priority) : null;
-    }
-    
-    public static Specification<Todo> hasProjectId(Long projectId) {
-        return (root, query, cb) -> 
-            projectId != null ? cb.equal(root.get("projectId"), projectId) : null;
-    }
-    
-    public static Specification<Todo> dueDateBetween(Timestamp start, Timestamp end) {
-        return (root, query, cb) -> {
-            if (start == null || end == null) return null;
-            return cb.between(root.get("dueDate"), start, end);
-        };
-    }
+    public static Specification<Todo> hasUserId(Long userId) { ... }
+    public static Specification<Todo> hasKeyword(String keyword) { ... }
+    public static Specification<Todo> hasStatus(Todo.TodoStatus status) { ... }
+    // ... 기타 필터 조건들
 }
 
-// TodoRepository를 JpaSpecificationExecutor로 확장
-public interface TodoRepository extends JpaRepository<Todo, Long>, 
-                                        JpaSpecificationExecutor<Todo>, 
-                                        TodoRepositoryCustom {
-    // 기존 메서드들 유지
-}
-
-// TodoService 간소화
+// TodoService 개선 결과
 public Page<TodoResponse> getTodos(Long userId, TodoSearchRequest request) {
     Specification<Todo> spec = Specification
-        .where(TodoSpecification.hasUserId(userId))
-        .and(TodoSpecification.hasKeyword(request.getKeyword()))
-        .and(TodoSpecification.hasStatus(request.getStatus()))
-        .and(TodoSpecification.hasPriority(request.getPriority()))
-        .and(TodoSpecification.hasProjectId(request.getProjectId()))
-        .and(TodoSpecification.dueDateBetween(
-            request.getDueDateStart(), 
-            request.getDueDateEnd()
-        ));
+            .where(TodoSpecification.hasUserId(userId))
+            .and(TodoSpecification.hasKeyword(request.getKeyword()))
+            .and(TodoSpecification.hasStatus(request.getStatus()))
+            .and(TodoSpecification.hasPriority(request.getPriority()))
+            .and(TodoSpecification.hasProjectId(request.getProjectId()))
+            .and(TodoSpecification.dueDateBetween(
+                    request.getDueDateStart(), 
+                    request.getDueDateEnd()
+            ));
     
     Pageable pageable = createPageable(request);
     return todoRepository.findAll(spec, pageable).map(TodoResponse::from);
 }
 ```
 
-**장점:**
-- 검색 조건을 자유롭게 조합 가능
-- 코드 가독성 및 유지보수성 향상
-- 새로운 필터 추가가 간단함
-- 타입 안전성 보장
-
 **체크리스트:**
-- [ ] `TodoSpecification` 클래스 생성
-- [ ] 모든 필터 조건을 Specification으로 변환
-- [ ] `TodoRepository`에 `JpaSpecificationExecutor` 추가
-- [ ] `TodoService.getTodos` 리팩토링
-- [ ] 기존 쿼리 메서드 제거 고려
-- [ ] 단위 테스트 작성
-- [ ] 통합 테스트 업데이트
+- [x] `TodoSpecification` 클래스 생성
+- [x] 모든 필터 조건을 Specification으로 변환
+- [x] `TodoRepository`에 `JpaSpecificationExecutor` 추가
+- [x] `TodoService.getTodos` 리팩토링
+- [x] 기존 쿼리 메서드 제거
+- [x] 단위 테스트 업데이트
+- [ ] 통합 테스트 추가 (선택사항)
 
-**예상 시간:** 5-6시간
+**완료 시간:** 약 5-6시간
+
+**테스트 결과:**
+- ✅ 모든 단위 테스트 통과 (TodoServiceTest)
+- ✅ 복잡한 if-else 로직이 Specification 조합으로 간소화됨
+- ✅ 코드 가독성 및 유지보수성 대폭 향상
 
 ---
 
@@ -674,99 +639,59 @@ public List<ProjectResponse> getProjectsByUser(User user) {
 
 #### 우선순위: 중간
 
-**4. Strategy 패턴으로 검색 로직 분리 (선택, 4-5시간)**
-
-**구현 계획:**
-
-```java
-// domain/todo/service/search/TodoSearchStrategy.java
-public interface TodoSearchStrategy {
-    boolean supports(TodoSearchRequest request);
-    Page<Todo> search(Long userId, TodoSearchRequest request, Pageable pageable);
-    int priority();  // 우선순위 (높을수록 먼저 실행)
-}
-
-// 구현 예시
-@Component
-@RequiredArgsConstructor
-public class KeywordSearchStrategy implements TodoSearchStrategy {
-    private final TodoRepository repository;
-    
-    @Override
-    public boolean supports(TodoSearchRequest request) {
-        return request.getKeyword() != null && !request.getKeyword().isEmpty();
-    }
-    
-    @Override
-    public Page<Todo> search(Long userId, TodoSearchRequest request, Pageable pageable) {
-        return repository.searchByKeyword(userId, request.getKeyword(), pageable);
-    }
-    
-    @Override
-    public int priority() {
-        return 100;  // 키워드 검색 우선
-    }
-}
-
-// TodoService 개선
-@Service
-@RequiredArgsConstructor
-public class TodoService {
-    private final List<TodoSearchStrategy> searchStrategies;
-    
-    public Page<TodoResponse> getTodos(Long userId, TodoSearchRequest searchRequest) {
-        Pageable pageable = createPageable(searchRequest);
-        
-        Page<Todo> todos = searchStrategies.stream()
-            .sorted(Comparator.comparing(TodoSearchStrategy::priority).reversed())
-            .filter(strategy -> strategy.supports(searchRequest))
-            .findFirst()
-            .map(strategy -> strategy.search(userId, searchRequest, pageable))
-            .orElseGet(() -> todoRepository.findByUserId(userId, pageable));
-        
-        return todos.map(TodoResponse::from);
-    }
-}
-```
-
-**참고:** Specification 패턴(우선순위 높음)을 구현하면 이 패턴은 선택사항이 됩니다.
-
-**체크리스트:**
-- [ ] `TodoSearchStrategy` 인터페이스 정의
-- [ ] 각 검색 조건별 Strategy 구현
-  - `KeywordSearchStrategy`
-  - `StatusSearchStrategy`
-  - `PrioritySearchStrategy`
-  - `ProjectSearchStrategy`
-  - `DateRangeSearchStrategy`
-- [ ] `TodoService` 리팩토링
-- [ ] 단위 테스트 작성
-
-**예상 시간:** 4-5시간
+**4. Strategy 패턴으로 검색 로직 분리**
+- 📋 [GitHub Issue #13](https://github.com/HwangGwiMan/Todo-App-Backend/issues/13)
+- 예상 시간: 4-5시간
+- 상세 내용은 `.github/issues/phase4-strategy-pattern.md` 참조
 
 ---
 
-**5. MapStruct로 DTO 매핑 자동화 (4-5시간)**
+**5. MapStruct로 DTO 매핑 자동화 ✅ (완료)**
 
-**현재 문제:**
-- DTO ↔ Entity 변환 로직이 수동으로 작성됨
-- 보일러플레이트 코드 증가
+**구현 완료 내용:**
 
-**구현 계획:**
+MapStruct를 사용하여 DTO ↔ Entity 변환 로직을 자동화하고, 공통 Mapper 인터페이스를 통해 일관성을 확보했습니다.
+
+**1. 의존성 추가:**
 
 ```gradle
 // build.gradle
 dependencies {
+    // Lombok이 먼저 실행되어야 함
+    annotationProcessor 'org.projectlombok:lombok'
+    
+    // Lombok-MapStruct Binding (필수)
+    implementation 'org.projectlombok:lombok-mapstruct-binding:0.2.0'
+    annotationProcessor 'org.projectlombok:lombok-mapstruct-binding:0.2.0'
+    
+    // MapStruct
     implementation 'org.mapstruct:mapstruct:1.5.5.Final'
     annotationProcessor 'org.mapstruct:mapstruct-processor:1.5.5.Final'
 }
 ```
 
+**2. 공통 GenericMapper 생성:**
+
+```java
+// global/common/mapper/GenericMapper.java
+public interface GenericMapper<D, R, E> {
+    E toEntity(D request);
+    R toDto(E entity);
+    List<R> toDtoList(List<E> entityList);
+    
+    @BeanMapping(nullValuePropertyMappingStrategy = NullValuePropertyMappingStrategy.IGNORE)
+    void updateFromDto(D request, @MappingTarget E entity);
+}
+```
+
+**3. TodoMapper 구현:**
+
 ```java
 // domain/todo/mapper/TodoMapper.java
 @Mapper(componentModel = "spring")
-public interface TodoMapper {
+public interface TodoMapper extends GenericMapper<TodoRequest, TodoResponse, Todo> {
     
+    @Override
     @Mapping(target = "id", ignore = true)
     @Mapping(target = "createdAt", ignore = true)
     @Mapping(target = "updatedAt", ignore = true)
@@ -774,159 +699,304 @@ public interface TodoMapper {
     @Mapping(target = "user", ignore = true)
     Todo toEntity(TodoRequest request);
     
-    TodoResponse toResponse(Todo todo);
+    @Override
+    @Mapping(source = "user.id", target = "userId")
+    @Mapping(source = "user.username", target = "username")
+    TodoResponse toDto(Todo todo);
     
-    List<TodoResponse> toResponseList(List<Todo> todos);
-    
+    @Override
     @BeanMapping(nullValuePropertyMappingStrategy = NullValuePropertyMappingStrategy.IGNORE)
-    void updateEntityFromRequest(TodoRequest request, @MappingTarget Todo todo);
-}
-
-// TodoService에서 사용
-public TodoResponse updateTodo(Long userId, Long todoId, TodoRequest request) {
-    Todo todo = getTodoOrThrow(todoId, userId);
-    todoMapper.updateEntityFromRequest(request, todo);  // 자동 매핑
-    
-    Todo updated = todoRepository.save(todo);
-    return todoMapper.toResponse(updated);
+    @Mapping(target = "id", ignore = true)
+    @Mapping(target = "createdAt", ignore = true)
+    @Mapping(target = "updatedAt", ignore = true)
+    @Mapping(target = "completedAt", ignore = true)
+    @Mapping(target = "user", ignore = true)
+    void updateFromDto(TodoRequest request, @MappingTarget Todo todo);
 }
 ```
 
-**체크리스트:**
-- [ ] MapStruct 의존성 추가
-- [ ] `TodoMapper` 인터페이스 생성
-- [ ] `ProjectMapper` 인터페이스 생성
-- [ ] Service 계층에서 수동 매핑 제거
-- [ ] 빌드 확인 (매퍼 구현체 자동 생성)
-- [ ] 테스트 코드 업데이트
-
-**예상 시간:** 4-5시간
-
----
-
-**6. Spring Events로 관심사 분리 (3-4시간)**
-
-**구현 계획:**
+**4. ProjectMapper 구현:**
 
 ```java
-// domain/todo/event/TodoCreatedEvent.java
+// domain/project/mapper/ProjectMapper.java
+@Mapper(componentModel = "spring")
+public interface ProjectMapper extends GenericMapper<ProjectRequest, ProjectResponse, Project> {
+    
+    @Override
+    @Mapping(target = "id", ignore = true)
+    @Mapping(target = "createdAt", ignore = true)
+    @Mapping(target = "updatedAt", ignore = true)
+    @Mapping(target = "user", ignore = true)
+    Project toEntity(ProjectRequest request);
+    
+    @Override
+    @Mapping(target = "todoCount", ignore = true)
+    ProjectResponse toDto(Project project);
+    
+    // todoCount를 포함한 매핑 추가
+    @Mapping(target = "todoCount", source = "todoCount")
+    ProjectResponse toDtoWithCount(Project project, Long todoCount);
+    
+    @Override
+    @BeanMapping(nullValuePropertyMappingStrategy = NullValuePropertyMappingStrategy.IGNORE)
+    @Mapping(target = "id", ignore = true)
+    @Mapping(target = "createdAt", ignore = true)
+    @Mapping(target = "updatedAt", ignore = true)
+    @Mapping(target = "user", ignore = true)
+    void updateFromDto(ProjectRequest request, @MappingTarget Project project);
+}
+```
+
+**5. BaseEntity @SuperBuilder 적용:**
+
+상속 구조에서 빌더 패턴이 정상 동작하도록 수정:
+
+```java
+// global/entity/BaseEntity.java
+@MappedSuperclass
 @Getter
+@Setter
+@SuperBuilder  // @Builder → @SuperBuilder 변경
+@NoArgsConstructor
 @AllArgsConstructor
-public class TodoCreatedEvent {
-    private final Todo todo;
-    private final User user;
+public abstract class BaseEntity {
+    @Id
+    @GeneratedValue(strategy = GenerationType.IDENTITY)
+    private Long id;
+    
+    @Column(name = "created_at", nullable = false, updatable = false)
+    private Timestamp createdAt;
+    
+    @Column(name = "updated_at", nullable = false)
+    private Timestamp updatedAt;
 }
 
-// TodoService에서 이벤트 발행
-@Transactional
-public TodoResponse createTodo(Long userId, TodoRequest request) {
-    // TODO 생성 로직
-    Todo saved = todoRepository.save(todo);
-    
-    // 이벤트 발행 (비동기 처리 가능)
-    eventPublisher.publishEvent(new TodoCreatedEvent(saved, user));
-    
-    return TodoResponse.from(saved);
-}
+// 모든 엔티티도 @SuperBuilder 적용
+// Todo, Project, User 엔티티
+@Entity
+@SuperBuilder  // @Builder → @SuperBuilder 변경
+public class Todo extends BaseEntity { ... }
+```
 
-// 이벤트 리스너
-@Component
+**6. Service 계층 리팩토링:**
+
+```java
+// TodoService.java
+@Service
 @RequiredArgsConstructor
-public class TodoEventListener {
+public class TodoService {
+    private final TodoMapper todoMapper;
     
-    @Async
-    @EventListener
-    @TransactionalEventListener(phase = TransactionPhase.AFTER_COMMIT)
-    public void handleTodoCreated(TodoCreatedEvent event) {
-        // 통계 업데이트
-        // 알림 발송 (Phase 6에서 구현)
-        // 외부 시스템 연동
-        log.info("TODO 생성됨: {}", event.getTodo().getTitle());
+    @Transactional
+    public TodoResponse createTodo(Long userId, TodoRequest request) {
+        User user = userRepository.findById(userId)
+                .orElseThrow(() -> new BusinessException(ErrorCode.USER_NOT_FOUND));
+
+        Todo todo = todoMapper.toEntity(request);  // 자동 매핑
+        todo.setUser(user);
+        
+        Todo savedTodo = todoRepository.save(todo);
+        return todoMapper.toDto(savedTodo);  // 자동 매핑
+    }
+    
+    @Transactional
+    public TodoResponse updateTodo(Long userId, Long todoId, TodoRequest request) {
+        Todo todo = todoRepository.findByIdAndUserId(todoId, userId)
+                .orElseThrow(() -> new BusinessException(ErrorCode.TODO_NOT_FOUND));
+        
+        todoMapper.updateFromDto(request, todo);  // 자동 업데이트
+        
+        Todo updatedTodo = todoRepository.save(todo);
+        return todoMapper.toDto(updatedTodo);
+    }
+    
+    public Page<TodoResponse> getTodos(Long userId, TodoSearchRequest request) {
+        Specification<Todo> spec = buildSpecification(userId, request);
+        Pageable pageable = createPageable(request);
+        
+        return todoRepository.findAll(spec, pageable)
+                .map(todoMapper::toDto);  // 자동 매핑
+    }
+}
+```
+
+**7. DTO 정리:**
+
+수동 매핑 메서드 제거:
+
+```java
+// TodoResponse.java, ProjectResponse.java
+// from(), fromWithTodoCount() 등 static 메서드 제거
+// 모든 매핑은 Mapper를 통해서만 수행
+```
+
+**8. 테스트 코드 업데이트:**
+
+```java
+// ProjectServiceTest.java, TodoServiceTest.java
+@ExtendWith(MockitoExtension.class)
+class ProjectServiceTest {
+    @Mock
+    private ProjectMapper projectMapper;  // Mock으로 추가
+    
+    @InjectMocks
+    private ProjectService projectService;
+    
+    @BeforeEach
+    void setUp() {
+        // lenient() 모드로 stub 설정
+        lenient().when(projectMapper.toDto(any(Project.class))).thenAnswer(...);
+        lenient().when(projectMapper.toDtoWithCount(any(), anyLong())).thenAnswer(...);
+        lenient().when(projectMapper.toEntity(any())).thenAnswer(...);
+        lenient().doAnswer(...).when(projectMapper).updateFromDto(any(), any());
     }
 }
 ```
 
 **장점:**
-- Service 계층의 책임 분리
-- 비동기 처리 가능
-- 기능 추가 시 기존 코드 수정 불필요
+- ✅ 보일러플레이트 코드 제거
+- ✅ 타입 안전한 매핑
+- ✅ 컴파일 타임 검증
+- ✅ 일관된 매핑 로직
+- ✅ 중앙 집중화된 매핑 관리
+- ✅ GenericMapper로 공통 인터페이스 제공
 
 **체크리스트:**
-- [ ] 이벤트 클래스 정의
-  - `TodoCreatedEvent`
-  - `TodoUpdatedEvent`
-  - `TodoDeletedEvent`
-  - `ProjectCreatedEvent` 등
-- [ ] `@EnableAsync` 설정
-- [ ] 이벤트 리스너 구현
-- [ ] Service에서 이벤트 발행 추가
-- [ ] 테스트 코드 작성
+- [x] MapStruct 의존성 추가 (Lombok 바인딩 포함)
+- [x] `GenericMapper` 공통 인터페이스 생성
+- [x] `TodoMapper` 인터페이스 생성
+- [x] `ProjectMapper` 인터페이스 생성
+- [x] `BaseEntity`에 `@SuperBuilder` 적용
+- [x] 모든 엔티티에 `@SuperBuilder` 적용
+- [x] Service 계층에서 수동 매핑 제거
+- [x] DTO의 static 매핑 메서드 제거
+- [x] 빌드 확인 (매퍼 구현체 자동 생성)
+- [x] 테스트 코드 업데이트 (lenient 모드 적용)
 
-**예상 시간:** 3-4시간
+**완료 시간:** 약 5시간
+
+**테스트 결과:**
+- ✅ 모든 단위 테스트 통과
+- ✅ MapStruct 구현체 정상 생성 (`TodoMapperImpl`, `ProjectMapperImpl`)
+- ✅ Service 계층 매핑 로직 자동화 완료
 
 ---
 
-**7. 캐싱 전략 구현 (3-4시간)**
+**6. Spring Events로 관심사 분리**
+- 📋 [GitHub Issue #14](https://github.com/HwangGwiMan/Todo-App-Backend/issues/14)
+- 예상 시간: 3-4시간
+- 상세 내용은 `.github/issues/phase4-spring-events.md` 참조
 
-**구현 계획:**
+---
 
-```java
-// config/CacheConfig.java
-@Configuration
-@EnableCaching
-public class CacheConfig {
-    
-    @Bean
-    public CacheManager cacheManager() {
-        SimpleCacheManager cacheManager = new SimpleCacheManager();
-        cacheManager.setCaches(Arrays.asList(
-            new ConcurrentMapCache("todos"),
-            new ConcurrentMapCache("projects"),
-            new ConcurrentMapCache("stats")
-        ));
-        return cacheManager;
-    }
-}
-
-// TodoService에 캐싱 적용
-@Cacheable(value = "todos", key = "#userId + '_' + #todoId")
-public TodoResponse getTodo(Long userId, Long todoId) {
-    // 캐시 미스 시에만 실행
-}
-
-@CacheEvict(value = "todos", key = "#userId + '_' + #todoId")
-public TodoResponse updateTodo(Long userId, Long todoId, TodoRequest request) {
-    // 업데이트 후 캐시 삭제
-}
-
-@Caching(evict = {
-    @CacheEvict(value = "todos", allEntries = true),
-    @CacheEvict(value = "stats", key = "#userId")
-})
-public void deleteTodo(Long userId, Long todoId) {
-    // 삭제 후 관련 캐시 모두 삭제
-}
-```
-
-**주의사항:**
-- 프로덕션에서는 Redis 사용 권장
-- 캐시 TTL 설정 필요
-- 캐시 일관성 보장
-
-**체크리스트:**
-- [ ] `@EnableCaching` 설정
-- [ ] `CacheManager` 빈 등록
-- [ ] 주요 조회 메서드에 `@Cacheable` 적용
-- [ ] 수정/삭제 메서드에 `@CacheEvict` 적용
-- [ ] 캐시 키 전략 설계
-- [ ] 캐시 모니터링 로그 추가
-- [ ] 성능 테스트
-
-**예상 시간:** 3-4시간
+**7. 캐싱 전략 구현**
+- 📋 [GitHub Issue #15](https://github.com/HwangGwiMan/Todo-App-Backend/issues/15)
+- 예상 시간: 3-4시간
+- 상세 내용은 `.github/issues/phase4-caching.md` 참조
 
 #### 우선순위: 낮음 (선택)
 
-**8. 감사 로그 시스템 (5-6시간)**
+**8. 감사 로그 시스템**
+- 📋 [GitHub Issue #16](https://github.com/HwangGwiMan/Todo-App-Backend/issues/16)
+- 예상 시간: 5-6시간
+- 상세 내용은 `.github/issues/phase4-audit-log.md` 참조
+
+---
+
+**9. Rate Limiting 구현**
+- 📋 [GitHub Issue #17](https://github.com/HwangGwiMan/Todo-App-Backend/issues/17)
+- 예상 시간: 2-3시간
+- 상세 내용은 `.github/issues/phase4-rate-limiting.md` 참조
+
+---
+
+**10. Soft Delete 구현**
+- 📋 [GitHub Issue #18](https://github.com/HwangGwiMan/Todo-App-Backend/issues/18)
+- 예상 시간: 2-3시간
+- 상세 내용은 `.github/issues/phase4-soft-delete.md` 참조
+
+#### 추가 개선사항
+
+**11. JOOQ 타입 안전성 개선**
+- 📋 [GitHub Issue #19](https://github.com/HwangGwiMan/Todo-App-Backend/issues/19)
+- 예상 시간: 4-5시간
+- 상세 내용은 `.github/issues/phase4-jooq-type-safety.md` 참조
+
+---
+
+**12. 입력 검증 강화**
+- 📋 [GitHub Issue #20](https://github.com/HwangGwiMan/Todo-App-Backend/issues/20)
+- 예상 시간: 2-3시간
+- 상세 내용은 `.github/issues/phase4-input-validation.md` 참조
+
+#### 총 예상 개발 시간 (Phase 4)
+
+**우선순위 높음 (필수):** 11-14시간 ✅ 완료
+- ~~예외 처리 체계~~
+- ~~Specification 패턴~~
+- ~~N+1 문제 해결~~
+- ~~MapStruct~~
+
+**우선순위 중간 (권장):** 10-15시간
+- Strategy 패턴: [Issue #13](https://github.com/HwangGwiMan/Todo-App-Backend/issues/13)
+- Spring Events: [Issue #14](https://github.com/HwangGwiMan/Todo-App-Backend/issues/14)
+- 캐싱: [Issue #15](https://github.com/HwangGwiMan/Todo-App-Backend/issues/15)
+
+**우선순위 낮음 (선택):** 9-12시간
+- 감사 로그: [Issue #16](https://github.com/HwangGwiMan/Todo-App-Backend/issues/16)
+- Rate Limiting: [Issue #17](https://github.com/HwangGwiMan/Todo-App-Backend/issues/17)
+- Soft Delete: [Issue #18](https://github.com/HwangGwiMan/Todo-App-Backend/issues/18)
+
+**추가 개선:** 6-8시간
+- JOOQ 타입 안전성: [Issue #19](https://github.com/HwangGwiMan/Todo-App-Backend/issues/19)
+- 입력 검증 강화: [Issue #20](https://github.com/HwangGwiMan/Todo-App-Backend/issues/20)
+
+---
+
+### 📅 Phase 6 - TODO 일정 관리 및 알림 기능
+
+**📋 [GitHub Issue #21](https://github.com/HwangGwiMan/Todo-App-Backend/issues/21)**
+
+**기능 개요:** TODO에 상세한 일정 관리 필드를 추가하고, 카카오톡/SMS/이메일을 통한 알림 기능 구현
+
+**예상 소요 시간:** 27-35시간
+
+**주요 구현 내용:**
+- 일정 관리 필드 확장 (startDate, endDate, isAllDay, recurrenceRule, location 등)
+- 알림 시스템 (이메일, SMS, 카카오톡 알림톡)
+- 알림 스케줄러 (Spring Scheduler)
+- 반복 일정 처리
+- 사용자 알림 설정
+
+**상세 내용:** `.github/issues/phase6-notification-system.md` 참조
+
+---
+
+### 📤 Phase 5 - 파일 출력(Export) 기능
+
+**📋 [GitHub Issue #22](https://github.com/HwangGwiMan/Todo-App-Backend/issues/22)**
+
+**기능 개요:** TODO 및 프로젝트 데이터를 다양한 파일 형식으로 내보내기 (JSON, Excel, PDF)
+
+**예상 소요 시간:** 10-14시간
+
+**지원 파일 형식:**
+- JSON 출력 (1-2시간) - 높은 우선순위
+- Excel 출력 (3-4시간) - 높은 우선순위, Apache POI 사용
+- PDF 출력 (4-5시간) - 중간 우선순위, iText7 사용
+
+**상세 내용:** `.github/issues/phase5-file-export.md` 참조
+
+---
+
+### 🏗️ 이전 Phase 완료 이력
+
+- ✅ **Phase 1 완료**: 인증 시스템, TODO CRUD, 검색/필터링, 통계 API
+- ✅ **Phase 2 완료**: 프로젝트 관리, 프로젝트-TODO 연동, position 관리
+- ✅ **Phase 3 완료**: 날짜 범위 검색
+- 🚧 **Phase 4 진행 중**: 아키텍처 개선 및 코드 품질 향상 (우선순위 높음 항목 완료)
+
+## 🔧 설정
 
 **구현 계획:**
 
@@ -1163,7 +1233,7 @@ public class ProjectRequest {
 
 **우선순위 중간 (권장):** 14-18시간
 - Strategy 패턴: 4-5시간 (Specification 구현 시 선택)
-- MapStruct: 4-5시간
+- ~~MapStruct: 4-5시간~~ ✅ 완료
 - Spring Events: 3-4시간
 - 캐싱: 3-4시간
 

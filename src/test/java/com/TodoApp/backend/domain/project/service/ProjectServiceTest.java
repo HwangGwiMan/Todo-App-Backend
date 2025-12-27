@@ -1,7 +1,9 @@
 package com.TodoApp.backend.domain.project.service;
 
 import com.TodoApp.backend.domain.project.dto.ProjectRequest;
+import com.TodoApp.backend.domain.project.dto.ProjectResponse;
 import com.TodoApp.backend.domain.project.entity.Project;
+import com.TodoApp.backend.domain.project.mapper.ProjectMapper;
 import com.TodoApp.backend.domain.project.repository.ProjectRepository;
 import com.TodoApp.backend.domain.todo.repository.TodoCountByProject;
 import com.TodoApp.backend.domain.todo.repository.TodoRepository;
@@ -23,6 +25,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.*;
 import static org.mockito.Mockito.*;
+import static org.mockito.Mockito.lenient;
 
 @ExtendWith(MockitoExtension.class)
 @DisplayName("ProjectService 테스트")
@@ -36,6 +39,8 @@ class ProjectServiceTest {
 
     @InjectMocks
     private ProjectService projectService;
+    @Mock
+    private ProjectMapper projectMapper;
 
     private User testUser;
     private Project testProject;
@@ -67,6 +72,63 @@ class ProjectServiceTest {
         projectRequest.setColor("#FF0000");
         projectRequest.setIsDefault(false);
         projectRequest.setPosition(0);
+
+        // Mapper stub 추가 - toDto 메서드
+        lenient().when(projectMapper.toDto(any(Project.class))).thenAnswer(invocation -> {
+            Project project = invocation.getArgument(0);
+            return ProjectResponse.builder()
+                    .id(project.getId())
+                    .name(project.getName())
+                    .description(project.getDescription())
+                    .color(project.getColor())
+                    .isDefault(project.getIsDefault())
+                    .position(project.getPosition())
+                    .createdAt(project.getCreatedAt())
+                    .updatedAt(project.getUpdatedAt())
+                    .build();
+        });
+
+        // Mapper stub 추가 - toDtoWithCount 메서드
+        lenient().when(projectMapper.toDtoWithCount(any(Project.class), anyLong())).thenAnswer(invocation -> {
+            Project project = invocation.getArgument(0);
+            Long todoCount = invocation.getArgument(1);
+            ProjectResponse response = ProjectResponse.builder()
+                    .id(project.getId())
+                    .name(project.getName())
+                    .description(project.getDescription())
+                    .color(project.getColor())
+                    .isDefault(project.getIsDefault())
+                    .position(project.getPosition())
+                    .createdAt(project.getCreatedAt())
+                    .updatedAt(project.getUpdatedAt())
+                    .todoCount(todoCount)
+                    .build();
+            return response;
+        });
+
+        // Mapper stub 추가 - toEntity 메서드
+        lenient().when(projectMapper.toEntity(any(ProjectRequest.class))).thenAnswer(invocation -> {
+            ProjectRequest request = invocation.getArgument(0);
+            return Project.builder()
+                    .name(request.getName())
+                    .description(request.getDescription())
+                    .color(request.getColor())
+                    .isDefault(request.getIsDefault())
+                    .position(request.getPosition())
+                    .build();
+        });
+
+        // Mapper stub 추가 - updateFromDto 메서드
+        lenient().doAnswer(invocation -> {
+            ProjectRequest request = invocation.getArgument(0);
+            Project project = invocation.getArgument(1);
+            if (request.getName() != null) project.setName(request.getName());
+            if (request.getDescription() != null) project.setDescription(request.getDescription());
+            if (request.getColor() != null) project.setColor(request.getColor());
+            if (request.getIsDefault() != null) project.setIsDefault(request.getIsDefault());
+            if (request.getPosition() != null) project.setPosition(request.getPosition());
+            return null;
+        }).when(projectMapper).updateFromDto(any(ProjectRequest.class), any(Project.class));
     }
 
     @Test

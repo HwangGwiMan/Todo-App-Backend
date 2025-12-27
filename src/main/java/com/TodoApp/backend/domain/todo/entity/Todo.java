@@ -3,11 +3,8 @@ package com.TodoApp.backend.domain.todo.entity;
 import com.TodoApp.backend.domain.user.entity.User;
 import com.TodoApp.backend.global.entity.BaseEntity;
 import jakarta.persistence.*;
-import lombok.AllArgsConstructor;
-import lombok.Builder;
-import lombok.Data;
-import lombok.EqualsAndHashCode;
-import lombok.NoArgsConstructor;
+import lombok.*;
+import lombok.experimental.SuperBuilder;
 
 import java.sql.Timestamp;
 import java.time.LocalDateTime;
@@ -18,7 +15,7 @@ import java.time.LocalDateTime;
 @EqualsAndHashCode(callSuper = true)
 @NoArgsConstructor
 @AllArgsConstructor
-@Builder
+@SuperBuilder
 public class Todo extends BaseEntity {
 
     @ManyToOne(fetch = FetchType.LAZY)
