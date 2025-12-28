@@ -3,6 +3,7 @@ package com.TodoApp.backend.domain.project.service;
 import com.TodoApp.backend.domain.project.dto.ProjectRequest;
 import com.TodoApp.backend.domain.project.dto.ProjectResponse;
 import com.TodoApp.backend.domain.project.entity.Project;
+import com.TodoApp.backend.domain.project.event.ProjectCreatedEvent;
 import com.TodoApp.backend.domain.project.mapper.ProjectMapper;
 import com.TodoApp.backend.domain.project.repository.ProjectRepository;
 import com.TodoApp.backend.domain.todo.repository.TodoRepository;
@@ -10,6 +11,7 @@ import com.TodoApp.backend.domain.user.entity.User;
 import com.TodoApp.backend.global.exception.BusinessException;
 import com.TodoApp.backend.global.exception.ErrorCode;
 import lombok.RequiredArgsConstructor;
+import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -28,6 +30,7 @@ public class ProjectService {
     private final ProjectRepository projectRepository;
     private final TodoRepository todoRepository;
     private final ProjectMapper projectMapper;
+    private final ApplicationEventPublisher eventPublisher;
 
     /**
      * 사용자별 프로젝트 목록 조회
@@ -100,6 +103,10 @@ public class ProjectService {
         if (project.getIsDefault() == null) project.setIsDefault(false);
 
         Project savedProject = projectRepository.save(project);
+        
+        // 이벤트 발행
+        eventPublisher.publishEvent(new ProjectCreatedEvent(savedProject, user));
+        
         return projectMapper.toDtoWithCount(savedProject, 0L);
     }
 
@@ -189,6 +196,10 @@ public class ProjectService {
                 .build();
 
         Project savedProject = projectRepository.save(defaultProject);
+        
+        // 이벤트 발행
+        eventPublisher.publishEvent(new ProjectCreatedEvent(savedProject, user));
+        
         return projectMapper.toDtoWithCount(savedProject, 0L);
     }
 }

@@ -52,13 +52,13 @@ public class TodoEventListener {
 - 기능 추가 시 기존 코드 수정 불필요
 
 ## 체크리스트
-- [ ] 이벤트 클래스 정의
-  - [ ] TodoCreatedEvent
-  - [ ] TodoUpdatedEvent
-  - [ ] TodoDeletedEvent
-  - [ ] ProjectCreatedEvent
-- [ ] @EnableAsync 설정
-- [ ] 이벤트 리스너 구현
-- [ ] Service에서 이벤트 발행 추가
-- [ ] 테스트 코드 작성
+- [x] 이벤트 클래스 정의
+  - [x] TodoCreatedEvent
+  - [x] TodoUpdatedEvent
+  - [x] TodoDeletedEvent
+  - [x] ProjectCreatedEvent
+- [x] @EnableAsync 설정
+- [x] 이벤트 리스너 구현
+- [x] Service에서 이벤트 발행 추가
+- [x] 테스트 코드 작성
 

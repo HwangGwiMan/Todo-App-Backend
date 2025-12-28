@@ -5,6 +5,9 @@ import com.TodoApp.backend.domain.todo.dto.TodoRequest;
 import com.TodoApp.backend.domain.todo.dto.TodoResponse;
 import com.TodoApp.backend.domain.todo.dto.TodoSearchRequest;
 import com.TodoApp.backend.domain.todo.entity.Todo;
+import com.TodoApp.backend.domain.todo.event.TodoCreatedEvent;
+import com.TodoApp.backend.domain.todo.event.TodoDeletedEvent;
+import com.TodoApp.backend.domain.todo.event.TodoUpdatedEvent;
 import com.TodoApp.backend.domain.todo.mapper.TodoMapper;
 import com.TodoApp.backend.domain.todo.repository.TodoRepository;
 import com.TodoApp.backend.domain.user.entity.User;
@@ -16,9 +19,11 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
+import org.mockito.ArgumentCaptor;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageImpl;
 import org.springframework.data.domain.Pageable;
@@ -51,6 +56,9 @@ class TodoServiceTest {
 
     @Mock
     private TodoMapper todoMapper;
+
+    @Mock
+    private ApplicationEventPublisher eventPublisher;
 
     private User testUser;
     private Todo testTodo;
@@ -135,6 +143,13 @@ class TodoServiceTest {
         assertThat(response.getTitle()).isEqualTo("새로운 TODO"); // testTodo.getTitle() 대신 todoRequest의 제목 사용
         verify(userRepository).findById(testUser.getId());
         verify(todoRepository).save(any(Todo.class));
+        
+        // 이벤트 발행 검증
+        ArgumentCaptor<TodoCreatedEvent> eventCaptor = ArgumentCaptor.forClass(TodoCreatedEvent.class);
+        verify(eventPublisher).publishEvent(eventCaptor.capture());
+        TodoCreatedEvent capturedEvent = eventCaptor.getValue();
+        assertThat(capturedEvent.getTodo()).isNotNull();
+        assertThat(capturedEvent.getUser()).isEqualTo(testUser);
     }
 
     @Test
@@ -377,6 +392,13 @@ class TodoServiceTest {
         assertThat(response.getStatus()).isEqualTo("IN_PROGRESS");
         verify(todoRepository).findByIdAndUserId(1L, 1L);
         verify(todoRepository).save(any(Todo.class));
+        
+        // 이벤트 발행 검증
+        ArgumentCaptor<TodoUpdatedEvent> eventCaptor = ArgumentCaptor.forClass(TodoUpdatedEvent.class);
+        verify(eventPublisher).publishEvent(eventCaptor.capture());
+        TodoUpdatedEvent capturedEvent = eventCaptor.getValue();
+        assertThat(capturedEvent.getTodo()).isNotNull();
+        assertThat(capturedEvent.getUser()).isEqualTo(testUser);
     }
 
     @Test
@@ -435,6 +457,13 @@ class TodoServiceTest {
         // Then
         verify(todoRepository).findByIdAndUserId(1L, 1L);
         verify(todoRepository).delete(testTodo);
+        
+        // 이벤트 발행 검증
+        ArgumentCaptor<TodoDeletedEvent> eventCaptor = ArgumentCaptor.forClass(TodoDeletedEvent.class);
+        verify(eventPublisher).publishEvent(eventCaptor.capture());
+        TodoDeletedEvent capturedEvent = eventCaptor.getValue();
+        assertThat(capturedEvent.getTodo()).isEqualTo(testTodo);
+        assertThat(capturedEvent.getUser()).isEqualTo(testUser);
     }
 
     @Test
