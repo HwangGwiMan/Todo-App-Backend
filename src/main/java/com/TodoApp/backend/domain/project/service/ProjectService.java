@@ -4,6 +4,8 @@ import com.TodoApp.backend.domain.project.dto.ProjectRequest;
 import com.TodoApp.backend.domain.project.dto.ProjectResponse;
 import com.TodoApp.backend.domain.project.entity.Project;
 import com.TodoApp.backend.domain.project.event.ProjectCreatedEvent;
+import com.TodoApp.backend.domain.project.event.ProjectDeletedEvent;
+import com.TodoApp.backend.domain.project.event.ProjectUpdatedEvent;
 import com.TodoApp.backend.domain.project.mapper.ProjectMapper;
 import com.TodoApp.backend.domain.project.repository.ProjectRepository;
 import com.TodoApp.backend.domain.todo.repository.TodoRepository;
@@ -138,6 +140,9 @@ public class ProjectService {
         Project updatedProject = projectRepository.save(project);
         Long todoCount = todoRepository.countByUserAndProjectId(user, projectId);
         
+        // 이벤트 발행
+        eventPublisher.publishEvent(new ProjectUpdatedEvent(updatedProject, user));
+        
         return projectMapper.toDtoWithCount(updatedProject, todoCount);
     }
 
@@ -153,6 +158,9 @@ public class ProjectService {
         if (Boolean.TRUE.equals(project.getIsDefault())) {
             throw new BusinessException(ErrorCode.DEFAULT_PROJECT_DELETE_NOT_ALLOWED);
         }
+
+        // 이벤트 발행 (삭제 전에 발행해야 엔티티 정보를 사용할 수 있음)
+        eventPublisher.publishEvent(new ProjectDeletedEvent(project, user));
 
         // 프로젝트 내 모든 TODO의 projectId를 null로 변경
         todoRepository.updateProjectIdToNullByProjectId(projectId);

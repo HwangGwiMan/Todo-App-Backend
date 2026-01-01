@@ -138,6 +138,10 @@ public class TodoService {
         Todo updatedTodo = todoRepository.save(todo);
         log.info("TODO 상태 변경: userId={}, todoId={}, status={}", userId, todoId, status);
 
+        // 이벤트 발행
+        User user = updatedTodo.getUser();
+        eventPublisher.publishEvent(new TodoUpdatedEvent(updatedTodo, user));
+
         return todoMapper.toDto(updatedTodo);
     }
 

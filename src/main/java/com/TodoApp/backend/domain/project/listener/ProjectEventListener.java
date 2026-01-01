@@ -1,6 +1,8 @@
 package com.TodoApp.backend.domain.project.listener;
 
 import com.TodoApp.backend.domain.project.event.ProjectCreatedEvent;
+import com.TodoApp.backend.domain.project.event.ProjectDeletedEvent;
+import com.TodoApp.backend.domain.project.event.ProjectUpdatedEvent;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.context.event.EventListener;
@@ -33,6 +35,44 @@ public class ProjectEventListener {
         
         // 향후 확장 가능한 기능들:
         // - 웰컴 메시지 발송
+        // - 통계 업데이트
+        // - 감사 로그 기록
+    }
+
+    /**
+     * 프로젝트 수정 이벤트 처리
+     */
+    @Async
+    @EventListener
+    @TransactionalEventListener(phase = TransactionPhase.AFTER_COMMIT)
+    public void handleProjectUpdated(ProjectUpdatedEvent event) {
+        log.info("프로젝트 수정됨: projectId={}, name={}, userId={}, username={}",
+                event.getProject().getId(),
+                event.getProject().getName(),
+                event.getUser().getId(),
+                event.getUser().getUsername());
+        
+        // 향후 확장 가능한 기능들:
+        // - 변경 알림 발송
+        // - 통계 업데이트
+        // - 감사 로그 기록
+    }
+
+    /**
+     * 프로젝트 삭제 이벤트 처리
+     */
+    @Async
+    @EventListener
+    @TransactionalEventListener(phase = TransactionPhase.AFTER_COMMIT)
+    public void handleProjectDeleted(ProjectDeletedEvent event) {
+        log.info("프로젝트 삭제됨: projectId={}, name={}, userId={}, username={}",
+                event.getProject().getId(),
+                event.getProject().getName(),
+                event.getUser().getId(),
+                event.getUser().getUsername());
+        
+        // 향후 확장 가능한 기능들:
+        // - 삭제 알림 발송
         // - 통계 업데이트
         // - 감사 로그 기록
     }
