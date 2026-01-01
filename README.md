@@ -882,7 +882,7 @@ class ProjectServiceTest {
 
 ---
 
-**6. Spring Events로 관심사 분리**
+**6. Spring Events로 관심사 분리 ✅ (완료)**
 - 📋 [GitHub Issue #14](https://github.com/HwangGwiMan/Todo-App-Backend/issues/14)
 - 예상 시간: 3-4시간
 - 상세 내용은 `.github/issues/phase4-spring-events.md` 참조
@@ -937,10 +937,9 @@ class ProjectServiceTest {
 - ~~N+1 문제 해결~~
 - ~~MapStruct~~
 
-**우선순위 중간 (권장):** 10-15시간
-- Strategy 패턴: [Issue #13](https://github.com/HwangGwiMan/Todo-App-Backend/issues/13)
-- Spring Events: [Issue #14](https://github.com/HwangGwiMan/Todo-App-Backend/issues/14)
-- 캐싱: [Issue #15](https://github.com/HwangGwiMan/Todo-App-Backend/issues/15)
+**우선순위 중간 (권장):** 7-11시간
+- Strategy 패턴으로 검색 로직 분리 (4-5시간 예상)
+- 캐싱 전략 구현 (3-4시간 예상)
 
 **우선순위 낮음 (선택):** 9-12시간
 - 감사 로그: [Issue #16](https://github.com/HwangGwiMan/Todo-App-Backend/issues/16)
@@ -1231,10 +1230,8 @@ public class ProjectRequest {
 - Specification 패턴: 5-6시간
 - N+1 문제 해결: 3-4시간
 
-**우선순위 중간 (권장):** 14-18시간
+**우선순위 중간 (권장):** 7-11시간
 - Strategy 패턴: 4-5시간 (Specification 구현 시 선택)
-- ~~MapStruct: 4-5시간~~ ✅ 완료
-- Spring Events: 3-4시간
 - 캐싱: 3-4시간
 
 **우선순위 낮음 (선택):** 11-15시간
@@ -1246,7 +1243,7 @@ public class ProjectRequest {
 - JOOQ 타입 안전성: 4-5시간
 - 입력 검증 강화: 2-3시간
 
-**총합:** 42-55시간
+**총합:** 39-51시간
 
 ---
 

@@ -5,6 +5,9 @@ import com.TodoApp.backend.domain.todo.dto.TodoRequest;
 import com.TodoApp.backend.domain.todo.dto.TodoResponse;
 import com.TodoApp.backend.domain.todo.dto.TodoSearchRequest;
 import com.TodoApp.backend.domain.todo.entity.Todo;
+import com.TodoApp.backend.domain.todo.event.TodoCreatedEvent;
+import com.TodoApp.backend.domain.todo.event.TodoDeletedEvent;
+import com.TodoApp.backend.domain.todo.event.TodoUpdatedEvent;
 import com.TodoApp.backend.domain.todo.repository.TodoRepository;
 import com.TodoApp.backend.domain.user.entity.User;
 import com.TodoApp.backend.domain.user.repository.UserRepository;
@@ -16,6 +19,7 @@ import com.TodoApp.backend.domain.todo.repository.specification.TodoSpecificatio
 import lombok.NonNull;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
@@ -37,6 +41,7 @@ public class TodoService {
     private final TodoRepository todoRepository;
     private final UserRepository userRepository;
     private final TodoMapper todoMapper;
+    private final ApplicationEventPublisher eventPublisher;
     // DSLContext 제거 가능 (Repository에서 처리)
 
     /**
@@ -57,6 +62,9 @@ public class TodoService {
 
         Todo savedTodo = todoRepository.save(todo);
         log.info("TODO 생성 완료: userId={}, todoId={}", userId, savedTodo.getId());
+
+        // 이벤트 발행
+        eventPublisher.publishEvent(new TodoCreatedEvent(savedTodo, user));
 
         return todoMapper.toDto(savedTodo);
     }
@@ -110,6 +118,11 @@ public class TodoService {
 
         Todo updatedTodo = todoRepository.save(todo);
         log.info("TODO 수정 완료: userId={}, todoId={}", userId, todoId);
+        
+        // 이벤트 발행
+        User user = updatedTodo.getUser();
+        eventPublisher.publishEvent(new TodoUpdatedEvent(updatedTodo, user));
+        
         return todoMapper.toDto(updatedTodo);
     }
 
@@ -125,6 +138,10 @@ public class TodoService {
         Todo updatedTodo = todoRepository.save(todo);
         log.info("TODO 상태 변경: userId={}, todoId={}, status={}", userId, todoId, status);
 
+        // 이벤트 발행
+        User user = updatedTodo.getUser();
+        eventPublisher.publishEvent(new TodoUpdatedEvent(updatedTodo, user));
+
         return todoMapper.toDto(updatedTodo);
     }
 
@@ -136,8 +153,13 @@ public class TodoService {
         Todo todo = todoRepository.findByIdAndUserId(todoId, userId)
                 .orElseThrow(() -> new BusinessException(ErrorCode.TODO_NOT_FOUND));
 
+        User user = todo.getUser();
+        
         todoRepository.delete(todo);
         log.info("TODO 삭제 완료: userId={}, todoId={}", userId, todoId);
+        
+        // 이벤트 발행 (삭제 전에 발행해야 엔티티 정보를 사용할 수 있음)
+        eventPublisher.publishEvent(new TodoDeletedEvent(todo, user));
     }
 
     /**

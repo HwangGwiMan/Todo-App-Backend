@@ -3,6 +3,9 @@ package com.TodoApp.backend.domain.project.service;
 import com.TodoApp.backend.domain.project.dto.ProjectRequest;
 import com.TodoApp.backend.domain.project.dto.ProjectResponse;
 import com.TodoApp.backend.domain.project.entity.Project;
+import com.TodoApp.backend.domain.project.event.ProjectCreatedEvent;
+import com.TodoApp.backend.domain.project.event.ProjectDeletedEvent;
+import com.TodoApp.backend.domain.project.event.ProjectUpdatedEvent;
 import com.TodoApp.backend.domain.project.mapper.ProjectMapper;
 import com.TodoApp.backend.domain.project.repository.ProjectRepository;
 import com.TodoApp.backend.domain.todo.repository.TodoRepository;
@@ -10,6 +13,7 @@ import com.TodoApp.backend.domain.user.entity.User;
 import com.TodoApp.backend.global.exception.BusinessException;
 import com.TodoApp.backend.global.exception.ErrorCode;
 import lombok.RequiredArgsConstructor;
+import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -28,6 +32,7 @@ public class ProjectService {
     private final ProjectRepository projectRepository;
     private final TodoRepository todoRepository;
     private final ProjectMapper projectMapper;
+    private final ApplicationEventPublisher eventPublisher;
 
     /**
      * 사용자별 프로젝트 목록 조회
@@ -100,6 +105,10 @@ public class ProjectService {
         if (project.getIsDefault() == null) project.setIsDefault(false);
 
         Project savedProject = projectRepository.save(project);
+        
+        // 이벤트 발행
+        eventPublisher.publishEvent(new ProjectCreatedEvent(savedProject, user));
+        
         return projectMapper.toDtoWithCount(savedProject, 0L);
     }
 
@@ -131,6 +140,9 @@ public class ProjectService {
         Project updatedProject = projectRepository.save(project);
         Long todoCount = todoRepository.countByUserAndProjectId(user, projectId);
         
+        // 이벤트 발행
+        eventPublisher.publishEvent(new ProjectUpdatedEvent(updatedProject, user));
+        
         return projectMapper.toDtoWithCount(updatedProject, todoCount);
     }
 
@@ -146,6 +158,9 @@ public class ProjectService {
         if (Boolean.TRUE.equals(project.getIsDefault())) {
             throw new BusinessException(ErrorCode.DEFAULT_PROJECT_DELETE_NOT_ALLOWED);
         }
+
+        // 이벤트 발행 (삭제 전에 발행해야 엔티티 정보를 사용할 수 있음)
+        eventPublisher.publishEvent(new ProjectDeletedEvent(project, user));
 
         // 프로젝트 내 모든 TODO의 projectId를 null로 변경
         todoRepository.updateProjectIdToNullByProjectId(projectId);
@@ -189,6 +204,10 @@ public class ProjectService {
                 .build();
 
         Project savedProject = projectRepository.save(defaultProject);
+        
+        // 이벤트 발행
+        eventPublisher.publishEvent(new ProjectCreatedEvent(savedProject, user));
+        
         return projectMapper.toDtoWithCount(savedProject, 0L);
     }
 }

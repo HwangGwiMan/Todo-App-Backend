@@ -3,6 +3,7 @@ package com.TodoApp.backend.domain.project.service;
 import com.TodoApp.backend.domain.project.dto.ProjectRequest;
 import com.TodoApp.backend.domain.project.dto.ProjectResponse;
 import com.TodoApp.backend.domain.project.entity.Project;
+import com.TodoApp.backend.domain.project.event.ProjectCreatedEvent;
 import com.TodoApp.backend.domain.project.mapper.ProjectMapper;
 import com.TodoApp.backend.domain.project.repository.ProjectRepository;
 import com.TodoApp.backend.domain.todo.repository.TodoCountByProject;
@@ -13,9 +14,11 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
+import org.mockito.ArgumentCaptor;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.springframework.context.ApplicationEventPublisher;
 
 import java.util.Arrays;
 import java.util.List;
@@ -39,8 +42,12 @@ class ProjectServiceTest {
 
     @InjectMocks
     private ProjectService projectService;
+    
     @Mock
     private ProjectMapper projectMapper;
+    
+    @Mock
+    private ApplicationEventPublisher eventPublisher;
 
     private User testUser;
     private Project testProject;
@@ -229,6 +236,13 @@ class ProjectServiceTest {
         assertThat(response.getName()).isEqualTo("새로운 프로젝트");
         verify(projectRepository).existsByUserAndName(testUser, "새로운 프로젝트");
         verify(projectRepository).save(any(Project.class));
+        
+        // 이벤트 발행 검증
+        ArgumentCaptor<ProjectCreatedEvent> eventCaptor = ArgumentCaptor.forClass(ProjectCreatedEvent.class);
+        verify(eventPublisher).publishEvent(eventCaptor.capture());
+        ProjectCreatedEvent capturedEvent = eventCaptor.getValue();
+        assertThat(capturedEvent.getProject()).isNotNull();
+        assertThat(capturedEvent.getUser()).isEqualTo(testUser);
     }
 
     @Test
@@ -446,6 +460,13 @@ class ProjectServiceTest {
         assertThat(response.getIsDefault()).isTrue();
         verify(projectRepository).findByUserAndIsDefaultTrue(testUser);
         verify(projectRepository).save(any(Project.class));
+        
+        // 이벤트 발행 검증
+        ArgumentCaptor<ProjectCreatedEvent> eventCaptor = ArgumentCaptor.forClass(ProjectCreatedEvent.class);
+        verify(eventPublisher).publishEvent(eventCaptor.capture());
+        ProjectCreatedEvent capturedEvent = eventCaptor.getValue();
+        assertThat(capturedEvent.getProject()).isNotNull();
+        assertThat(capturedEvent.getUser()).isEqualTo(testUser);
     }
 
     @Test
