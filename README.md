@@ -889,10 +889,73 @@ class ProjectServiceTest {
 
 ---
 
-**7. 캐싱 전략 구현**
-- 📋 [GitHub Issue #15](https://github.com/HwangGwiMan/Todo-App-Backend/issues/15)
-- 예상 시간: 3-4시간
-- 상세 내용은 `.github/issues/phase4-caching.md` 참조
+**7. 캐싱 전략 구현 ✅ (완료)**
+
+**구현 완료 내용:**
+
+Spring Cache를 활용하여 자주 조회되는 데이터에 대한 캐싱 전략을 구현했습니다.
+
+**1. CacheConfig 설정:**
+
+```java
+@Configuration
+@EnableCaching
+public class CacheConfig {
+    @Bean
+    public CacheManager cacheManager() {
+        SimpleCacheManager cacheManager = new SimpleCacheManager();
+        cacheManager.setCaches(Arrays.asList(
+            new ConcurrentMapCache("todos"),
+            new ConcurrentMapCache("projects"),
+            new ConcurrentMapCache("projectList"),
+            new ConcurrentMapCache("stats")
+        ));
+        return cacheManager;
+    }
+}
+```
+
+**2. TodoService 캐싱 적용:**
+
+- `@Cacheable`: getTodo, getUserStats, getDashboardStats
+- `@CacheEvict`: createTodo, updateTodo, updateTodoStatus, deleteTodo
+- `@Caching` 어노테이션으로 여러 캐시 동시 무효화
+
+**3. ProjectService 캐싱 적용:**
+
+- `@Cacheable`: getProject, getProjectsByUser, getDefaultProject
+- `@CacheEvict`: createProject, updateProject, deleteProject
+- `@Caching` 어노테이션으로 여러 캐시 동시 무효화
+
+**캐시 키 전략:**
+- TODO: `todos:userId:{userId}:todoId:{todoId}`
+- 통계: `stats:user:{userId}`, `stats:dashboard:{userId}`
+- 프로젝트: `projects:userId:{userId}:projectId:{projectId}`, `projects:default:userId:{userId}`
+- 프로젝트 목록: `projectList:userId:{userId}`
+
+**장점:**
+- ✅ 조회 성능 향상 (캐시 히트 시)
+- ✅ 데이터베이스 부하 감소
+- ✅ 응답 시간 단축
+- ✅ 캐시 무효화 전략으로 데이터 일관성 보장
+
+**체크리스트:**
+- [x] @EnableCaching 설정
+- [x] CacheManager 빈 등록
+- [x] 주요 조회 메서드에 @Cacheable 적용
+- [x] 수정/삭제 메서드에 @CacheEvict 적용
+- [x] 캐시 키 전략 설계
+- [x] 캐시 모니터링 로그 추가 (DEBUG 레벨)
+- [ ] 성능 테스트 (수동 테스트 필요)
+
+**완료 시간:** 약 3시간
+
+**상세 내용:** `.github/issues/phase4-caching.md` 참조
+
+**향후 개선:**
+- [ ] Redis 연동 (프로덕션 환경)
+- [ ] 캐시 TTL 설정 (Caffeine 또는 Redis 사용 시)
+- [ ] 분산 캐시 전략
 
 #### 우선순위: 낮음 (선택)
 
@@ -939,7 +1002,7 @@ class ProjectServiceTest {
 
 **우선순위 중간 (권장):** 7-11시간
 - Strategy 패턴으로 검색 로직 분리 (4-5시간 예상)
-- 캐싱 전략 구현 (3-4시간 예상)
+- ~~캐싱 전략 구현~~ ✅ 완료 (3-4시간 소요)
 
 **우선순위 낮음 (선택):** 9-12시간
 - 감사 로그: [Issue #16](https://github.com/HwangGwiMan/Todo-App-Backend/issues/16)
@@ -993,7 +1056,7 @@ class ProjectServiceTest {
 - ✅ **Phase 1 완료**: 인증 시스템, TODO CRUD, 검색/필터링, 통계 API
 - ✅ **Phase 2 완료**: 프로젝트 관리, 프로젝트-TODO 연동, position 관리
 - ✅ **Phase 3 완료**: 날짜 범위 검색
-- 🚧 **Phase 4 진행 중**: 아키텍처 개선 및 코드 품질 향상 (우선순위 높음 항목 완료)
+- 🚧 **Phase 4 진행 중**: 아키텍처 개선 및 코드 품질 향상 (우선순위 높음 항목 완료, 캐싱 전략 완료)
 
 ## 🔧 설정
 
