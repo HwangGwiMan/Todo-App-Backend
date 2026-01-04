@@ -10,7 +10,11 @@ Spring Boot 3.5.7 + Java 17로 구축된 TodoApp 백엔드 API 서버입니다.
 
 - ✅ **Phase 1 완료**: 인증 시스템, TODO CRUD, 검색/필터링/정렬, 페이징, 통계 API, API 문서화
 - ✅ **Phase 2 완료**: 프로젝트 관리, 프로젝트-TODO 연동, 기본 프로젝트 관리, 순서(position) 관리
-- 🚧 **Phase 3 예정**: 고급 검색 기능, TODO 복제/템플릿, 태그 시스템, 성능 최적화, 보안 강화
+- ✅ **Phase 3 완료**: 날짜 범위 검색
+- 🚧 **Phase 4 진행 중**: 아키텍처 개선 및 코드 품질 향상 (우선순위 높음 항목 완료, 캐싱 전략 완료)
+- 📋 **Phase 5 예정**: 파일 출력(Export) 기능 (JSON, Excel, PDF)
+- 📋 **Phase 6 예정**: TODO 일정 관리 및 알림 기능
+- 📋 **Phase 7 예정**: DB 기반 Role & Permission 관리 시스템
 
 ## 🚀 시작하기
 
@@ -1034,6 +1038,35 @@ public class CacheConfig {
 
 ---
 
+### 🔐 Phase 7 - DB 기반 Role & Permission 관리 시스템
+
+**📋 [GitHub Issue #23](https://github.com/HwangGwiMan/Todo-App-Backend/issues/23)**
+
+**기능 개요:** 데이터베이스에서 Role과 Permission을 관리하는 유연한 권한 관리 시스템 구축
+
+**예상 소요 시간:** 12-17시간
+
+**주요 구현 내용:**
+- Role 및 Permission 엔티티 생성 (다대다 관계)
+- DB 기반 권한 관리 시스템
+- Spring Security와 통합 (Permission 기반 접근 제어)
+- 관리자용 권한 관리 API
+- HTTP Method + Permission 기반 세밀한 접근 제어
+
+**기본 Permission:**
+- TODO 권한: `TODO_READ`, `TODO_WRITE`, `TODO_DELETE`
+- PROJECT 권한: `PROJECT_READ`, `PROJECT_WRITE`, `PROJECT_DELETE`
+- USER 권한: `USER_READ`, `USER_MANAGE`
+- ADMIN 권한: `ADMIN_ACCESS`
+
+**기본 Role:**
+- `USER`: 일반 사용자 권한 (TODO, PROJECT CRUD)
+- `ADMIN`: 모든 권한 포함
+
+**상세 내용:** `.github/issues/phase7-role-permission-management.md` 참조
+
+---
+
 ### 📤 Phase 5 - 파일 출력(Export) 기능
 
 **📋 [GitHub Issue #22](https://github.com/HwangGwiMan/Todo-App-Backend/issues/22)**
@@ -1057,6 +1090,9 @@ public class CacheConfig {
 - ✅ **Phase 2 완료**: 프로젝트 관리, 프로젝트-TODO 연동, position 관리
 - ✅ **Phase 3 완료**: 날짜 범위 검색
 - 🚧 **Phase 4 진행 중**: 아키텍처 개선 및 코드 품질 향상 (우선순위 높음 항목 완료, 캐싱 전략 완료)
+- 📋 **Phase 5 예정**: 파일 출력(Export) 기능
+- 📋 **Phase 6 예정**: TODO 일정 관리 및 알림 기능
+- 📋 **Phase 7 예정**: DB 기반 Role & Permission 관리 시스템
 
 ## 🔧 설정
 
