@@ -12,6 +12,9 @@ import com.TodoApp.backend.domain.todo.repository.TodoRepository;
 import com.TodoApp.backend.domain.user.entity.User;
 import com.TodoApp.backend.global.exception.BusinessException;
 import com.TodoApp.backend.global.exception.ErrorCode;
+
+import io.micrometer.common.lang.NonNull;
+import jakarta.validation.constraints.NotNull;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.cache.annotation.CacheEvict;

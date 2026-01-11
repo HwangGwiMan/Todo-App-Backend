@@ -58,6 +58,33 @@ public class SecurityConfig {
                                 "/swagger-resources/**",
                                 "/webjars/**"
                         ).permitAll()
+                        
+                        // TODO 권한
+                        .requestMatchers(org.springframework.http.HttpMethod.GET, "/api/todos/**")
+                            .hasAnyAuthority("TODO_READ", "ADMIN_ACCESS")
+                        .requestMatchers(org.springframework.http.HttpMethod.POST, "/api/todos/**")
+                            .hasAnyAuthority("TODO_WRITE", "ADMIN_ACCESS")
+                        .requestMatchers(org.springframework.http.HttpMethod.PUT, "/api/todos/**")
+                            .hasAnyAuthority("TODO_WRITE", "ADMIN_ACCESS")
+                        .requestMatchers(org.springframework.http.HttpMethod.PATCH, "/api/todos/**")
+                            .hasAnyAuthority("TODO_WRITE", "ADMIN_ACCESS")
+                        .requestMatchers(org.springframework.http.HttpMethod.DELETE, "/api/todos/**")
+                            .hasAnyAuthority("TODO_DELETE", "ADMIN_ACCESS")
+                        
+                        // PROJECT 권한
+                        .requestMatchers(org.springframework.http.HttpMethod.GET, "/api/projects/**")
+                            .hasAnyAuthority("PROJECT_READ", "ADMIN_ACCESS")
+                        .requestMatchers(org.springframework.http.HttpMethod.POST, "/api/projects/**")
+                            .hasAnyAuthority("PROJECT_WRITE", "ADMIN_ACCESS")
+                        .requestMatchers(org.springframework.http.HttpMethod.PUT, "/api/projects/**")
+                            .hasAnyAuthority("PROJECT_WRITE", "ADMIN_ACCESS")
+                        .requestMatchers(org.springframework.http.HttpMethod.DELETE, "/api/projects/**")
+                            .hasAnyAuthority("PROJECT_DELETE", "ADMIN_ACCESS")
+                        
+                        // 관리자 권한
+                        .requestMatchers("/api/admin/**")
+                            .hasAnyAuthority("ADMIN_ACCESS", "ROLE_ADMIN")
+                        
                         // 그 외 모든 요청은 인증 필요
                         .anyRequest().authenticated()
                 )

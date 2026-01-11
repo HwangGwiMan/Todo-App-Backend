@@ -1,14 +1,17 @@
 # [Phase 7] DB 기반 Role & Permission 관리 시스템
 
+## 상태
+✅ **완료** (2025년 12월)
+
 ## 개요
 
 데이터베이스에서 Role과 Permission을 관리하는 유연한 권한 관리 시스템을 구축합니다. Spring Security와 통합하여 세밀한 접근 제어를 제공합니다.
 
 ## 우선순위
-높음 (필수)
+높음 (필수) ✅ 완료
 
 ## 예상 소요 시간
-12-17시간
+12-17시간 (실제 소요: 약 12-15시간, 테스트 제외)
 
 ## 목표
 
@@ -17,6 +20,20 @@
 - ✅ Spring Security와 통합
 - ✅ 관리자용 권한 관리 API 제공
 - ✅ HTTP Method + Permission 기반 접근 제어
+
+## 구현 완료 상태
+
+**완료일:** 2025년 12월
+
+**구현 완료 항목:**
+- ✅ Phase 7-1: 엔티티 및 Repository 생성
+- ✅ Phase 7-2: 초기 데이터 설정
+- ✅ Phase 7-3: Service 계층 구현
+- ✅ Phase 7-4: DTO 생성
+- ✅ Phase 7-5: Controller 구현
+- ✅ Phase 7-6: Security 통합
+- ✅ Phase 7-7: 기타 수정 (AuthService, ErrorCode)
+- ⏳ Phase 7-8: 테스트 (단위/통합 테스트 작성 예정)
 
 ## 데이터베이스 설계
 
@@ -321,44 +338,44 @@ PERMISSION_NOT_FOUND(404, "권한을 찾을 수 없습니다."),
 
 ## 체크리스트
 
-### Phase 7-1: 엔티티 및 Repository
-- [ ] Permission 엔티티 생성
-- [ ] Role 엔티티 생성
-- [ ] User 엔티티 수정 (Role enum → Set<Role>)
-- [ ] RoleRepository 생성
-- [ ] PermissionRepository 생성
-- [ ] 데이터베이스 마이그레이션 스크립트 작성
+### Phase 7-1: 엔티티 및 Repository ✅
+- [x] Permission 엔티티 생성
+- [x] Role 엔티티 생성
+- [x] User 엔티티 수정 (Role enum → Set<Role>)
+- [x] RoleRepository 생성
+- [x] PermissionRepository 생성
+- [x] 데이터베이스 마이그레이션 스크립트 작성 (JPA DDL 사용)
 
-### Phase 7-2: 초기 데이터
-- [ ] RolePermissionInitializer 생성
-- [ ] 기본 Role 및 Permission 데이터 생성
-- [ ] 기존 사용자에 USER 역할 할당
+### Phase 7-2: 초기 데이터 ✅
+- [x] RolePermissionInitializer 생성
+- [x] 기본 Role 및 Permission 데이터 생성
+- [x] 기존 사용자에 USER 역할 할당
 
-### Phase 7-3: Service 계층
-- [ ] RoleService 구현
-- [ ] UserRoleService 구현
-- [ ] PermissionService 구현 (선택사항)
+### Phase 7-3: Service 계층 ✅
+- [x] RoleService 구현
+- [x] UserRoleService 구현
+- [ ] PermissionService 구현 (선택사항, 현재 미구현)
 
-### Phase 7-4: DTO
-- [ ] RoleRequest 생성
-- [ ] RoleResponse 생성
-- [ ] PermissionResponse 생성
-- [ ] UserRoleRequest 생성
+### Phase 7-4: DTO ✅
+- [x] RoleRequest 생성
+- [x] RoleResponse 생성
+- [x] PermissionResponse 생성
+- [x] UserRoleRequest 생성
 
-### Phase 7-5: Controller
-- [ ] RoleController 생성
-- [ ] UserRoleController 생성
-- [ ] Swagger 문서화
+### Phase 7-5: Controller ✅
+- [x] RoleController 생성
+- [x] UserRoleController 생성
+- [x] Swagger 문서화 (OpenAPI 어노테이션 적용)
 
-### Phase 7-6: Security 통합
-- [ ] SecurityConfig 권한 설정 업데이트
-- [ ] Permission 기반 접근 제어 적용
-- [ ] 테스트
+### Phase 7-6: Security 통합 ✅
+- [x] SecurityConfig 권한 설정 업데이트
+- [x] Permission 기반 접근 제어 적용
+- [ ] 테스트 (수동 테스트 필요)
 
-### Phase 7-7: 기타 수정
-- [ ] AuthService 수정 (회원가입 시 역할 할당)
-- [ ] ErrorCode 추가
-- [ ] 기존 코드 마이그레이션
+### Phase 7-7: 기타 수정 ✅
+- [x] AuthService 수정 (회원가입 시 역할 할당)
+- [x] ErrorCode 추가
+- [x] 기존 코드 마이그레이션 (User 엔티티 Role enum 제거)
 
 ### Phase 7-8: 테스트
 - [ ] 단위 테스트 작성
@@ -367,31 +384,32 @@ PERMISSION_NOT_FOUND(404, "권한을 찾을 수 없습니다."),
 
 ## 예상 소요 시간 상세
 
-- Phase 7-1: 2-3시간
-- Phase 7-2: 1-2시간
-- Phase 7-3: 2-3시간
-- Phase 7-4: 1시간
-- Phase 7-5: 2시간
-- Phase 7-6: 1-2시간
-- Phase 7-7: 1시간
-- Phase 7-8: 2-3시간
+- Phase 7-1: 2-3시간 ✅ (완료)
+- Phase 7-2: 1-2시간 ✅ (완료)
+- Phase 7-3: 2-3시간 ✅ (완료)
+- Phase 7-4: 1시간 ✅ (완료)
+- Phase 7-5: 2시간 ✅ (완료)
+- Phase 7-6: 1-2시간 ✅ (완료)
+- Phase 7-7: 1시간 ✅ (완료)
+- Phase 7-8: 2-3시간 ⏳ (테스트 작성 예정)
 
-**총 예상 시간: 12-17시간**
+**총 예상 시간: 12-17시간**  
+**실제 소요 시간: 약 12-15시간** (테스트 제외)
 
 ## 우선순위
 
-**높음 (필수):**
-- Phase 7-1: 엔티티 및 Repository
-- Phase 7-2: 초기 데이터
-- Phase 7-3: Service 계층
-- Phase 7-6: Security 통합
+**높음 (필수):** ✅ 완료
+- Phase 7-1: 엔티티 및 Repository ✅
+- Phase 7-2: 초기 데이터 ✅
+- Phase 7-3: Service 계층 ✅
+- Phase 7-6: Security 통합 ✅
 
-**중간 (권장):**
-- Phase 7-4: DTO
-- Phase 7-5: Controller
-- Phase 7-7: 기타 수정
+**중간 (권장):** ✅ 완료
+- Phase 7-4: DTO ✅
+- Phase 7-5: Controller ✅
+- Phase 7-7: 기타 수정 ✅
 
-**낮음 (선택):**
+**낮음 (선택):** ⏳ 진행 예정
 - Phase 7-8: 테스트 (기본 테스트는 필수, 상세 테스트는 선택)
 
 ## 기본 Permission 목록
@@ -439,14 +457,14 @@ PERMISSION_NOT_FOUND(404, "권한을 찾을 수 없습니다."),
 
 ## 마이그레이션 전략
 
-1. **기존 사용자 마이그레이션**
-   - 기존 `User.role` enum 값을 기반으로 `user_roles` 테이블에 데이터 생성
-   - 마이그레이션 완료 후 `role` 컬럼 제거
+1. **기존 사용자 마이그레이션** ✅ 완료
+   - `RolePermissionInitializer`가 애플리케이션 시작 시 기존 사용자에 USER 역할 자동 할당
+   - JPA DDL을 통해 자동으로 테이블 생성 및 관계 설정
 
-2. **점진적 전환**
-   - Phase 7-1에서 User 엔티티에 `Set<Role> roles` 추가
-   - `getAuthorities()` 메서드에서 `roles`가 비어있으면 기존 `role` enum 사용 (하위 호환성)
-   - 모든 사용자 마이그레이션 완료 후 `role` 컬럼 제거
+2. **점진적 전환** ✅ 완료
+   - User 엔티티에서 `Role` enum 제거 및 `Set<Role> roles`로 완전 전환
+   - `getAuthorities()` 메서드에서 `roles`를 기반으로 권한 생성
+   - null 안전성 보장을 위한 null 체크 추가
 
 ## 참고 자료
 

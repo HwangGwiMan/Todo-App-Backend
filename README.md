@@ -14,7 +14,7 @@ Spring Boot 3.5.7 + Java 17로 구축된 TodoApp 백엔드 API 서버입니다.
 - 🚧 **Phase 4 진행 중**: 아키텍처 개선 및 코드 품질 향상 (우선순위 높음 항목 완료, 캐싱 전략 완료)
 - 📋 **Phase 5 예정**: 파일 출력(Export) 기능 (JSON, Excel, PDF)
 - 📋 **Phase 6 예정**: TODO 일정 관리 및 알림 기능
-- 📋 **Phase 7 예정**: DB 기반 Role & Permission 관리 시스템
+- ✅ **Phase 7 완료**: DB 기반 Role & Permission 관리 시스템
 
 ## 🚀 시작하기
 
@@ -1038,20 +1038,47 @@ public class CacheConfig {
 
 ---
 
-### 🔐 Phase 7 - DB 기반 Role & Permission 관리 시스템
+### ✅ Phase 7 완료 - DB 기반 Role & Permission 관리 시스템
 
 **📋 [GitHub Issue #23](https://github.com/HwangGwiMan/Todo-App-Backend/issues/23)**
 
 **기능 개요:** 데이터베이스에서 Role과 Permission을 관리하는 유연한 권한 관리 시스템 구축
 
-**예상 소요 시간:** 12-17시간
+**완료 시간:** 약 12-15시간
 
-**주요 구현 내용:**
-- Role 및 Permission 엔티티 생성 (다대다 관계)
-- DB 기반 권한 관리 시스템
-- Spring Security와 통합 (Permission 기반 접근 제어)
-- 관리자용 권한 관리 API
-- HTTP Method + Permission 기반 세밀한 접근 제어
+**구현 완료 내용:**
+
+- [x] **엔티티 및 Repository**
+  - Permission 엔티티 생성 (Resource, Action enum)
+  - Role 엔티티 생성 (Permission과 다대다 관계)
+  - User 엔티티 수정 (Role enum → Set<Role>)
+  - RoleRepository, PermissionRepository 생성
+
+- [x] **초기 데이터 설정**
+  - RolePermissionInitializer 생성 (CommandLineRunner)
+  - 기본 Permission 자동 생성 (TODO, PROJECT, USER, ADMIN)
+  - 기본 Role 자동 생성 (USER, ADMIN)
+  - 기존 사용자에 USER 역할 자동 할당
+
+- [x] **Service 계층**
+  - RoleService: 역할 CRUD 및 권한 관리
+  - UserRoleService: 사용자 역할 할당/제거/업데이트
+
+- [x] **DTO 및 Controller**
+  - RoleRequest, RoleResponse, PermissionResponse, UserRoleRequest 생성
+  - RoleController: 역할 관리 API (관리자 전용)
+  - UserRoleController: 사용자 역할 관리 API (관리자 전용)
+  - Swagger/OpenAPI 문서화 완료
+
+- [x] **Spring Security 통합**
+  - SecurityConfig에 Permission 기반 접근 제어 적용
+  - HTTP Method별 세밀한 권한 체크 (GET/POST/PUT/DELETE)
+  - TODO, PROJECT, ADMIN 엔드포인트 권한 설정
+
+- [x] **기타 수정**
+  - AuthService: 회원가입 시 기본 USER 역할 자동 할당
+  - ErrorCode: Role, Permission 관련 에러 코드 추가
+  - User 엔티티: Role enum 제거 및 Set<Role>로 마이그레이션
 
 **기본 Permission:**
 - TODO 권한: `TODO_READ`, `TODO_WRITE`, `TODO_DELETE`
@@ -1062,6 +1089,17 @@ public class CacheConfig {
 **기본 Role:**
 - `USER`: 일반 사용자 권한 (TODO, PROJECT CRUD)
 - `ADMIN`: 모든 권한 포함
+
+**API 엔드포인트:**
+- `GET /api/admin/roles`: 모든 역할 조회
+- `GET /api/admin/roles/{id}`: 역할 상세 조회
+- `POST /api/admin/roles`: 역할 생성
+- `PUT /api/admin/roles/{id}`: 역할 수정
+- `DELETE /api/admin/roles/{id}`: 역할 삭제
+- `GET /api/admin/users/{userId}/roles`: 사용자 역할 조회
+- `POST /api/admin/users/{userId}/roles`: 사용자에 역할 할당
+- `DELETE /api/admin/users/{userId}/roles/{roleId}`: 사용자에서 역할 제거
+- `PUT /api/admin/users/{userId}/roles`: 사용자 역할 일괄 업데이트
 
 **상세 내용:** `.github/issues/phase7-role-permission-management.md` 참조
 
@@ -1092,7 +1130,7 @@ public class CacheConfig {
 - 🚧 **Phase 4 진행 중**: 아키텍처 개선 및 코드 품질 향상 (우선순위 높음 항목 완료, 캐싱 전략 완료)
 - 📋 **Phase 5 예정**: 파일 출력(Export) 기능
 - 📋 **Phase 6 예정**: TODO 일정 관리 및 알림 기능
-- 📋 **Phase 7 예정**: DB 기반 Role & Permission 관리 시스템
+- ✅ **Phase 7 완료**: DB 기반 Role & Permission 관리 시스템
 
 ## 🔧 설정
 
