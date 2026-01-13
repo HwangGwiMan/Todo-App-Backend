@@ -19,6 +19,9 @@ assignees: ''
 ## 🔍 상세 로그 (Stack Trace)
 > 발생한 에러 로그나 스택 트레이스를 아래 코드 블록에 붙여넣어 주세요.
 
+<details><summary>Details</summary>
+<p>
+
 // 여기에 로그 복사
 
 ## 기타 사항
