@@ -1,6 +1,6 @@
 ---
 name: Enhancement
-about: Describe this issue template's purpose here.
+about: Issues regarding areas that need improvement
 title: ''
 labels: ''
 assignees: ''
