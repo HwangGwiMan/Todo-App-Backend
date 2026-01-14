@@ -3,6 +3,8 @@ package com.TodoApp.backend.domain.auth.service;
 import com.TodoApp.backend.domain.auth.dto.AuthResponse;
 import com.TodoApp.backend.domain.auth.dto.LoginRequest;
 import com.TodoApp.backend.domain.auth.dto.SignupRequest;
+import com.TodoApp.backend.domain.permission.entity.Role;
+import com.TodoApp.backend.domain.permission.repository.RoleRepository;
 import com.TodoApp.backend.domain.user.entity.User;
 import com.TodoApp.backend.domain.user.repository.UserRepository;
 import com.TodoApp.backend.global.exception.BusinessException;
@@ -17,11 +19,15 @@ import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.util.HashSet;
+import java.util.Set;
+
 @Service
 @RequiredArgsConstructor
 public class AuthService {
 
     private final UserRepository userRepository;
+    private final RoleRepository roleRepository;
     private final PasswordEncoder passwordEncoder;
     private final JwtUtil jwtUtil;
     private final AuthenticationManager authenticationManager;
@@ -38,12 +44,19 @@ public class AuthService {
             throw new BusinessException(ErrorCode.DUPLICATE_USERNAME, "이미 사용 중인 이메일입니다");
         }
 
+        // 기본 USER 역할 조회
+        Role userRole = roleRepository.findByName("USER")
+                .orElseThrow(() -> new BusinessException(ErrorCode.ROLE_NOT_FOUND, "기본 USER 역할이 존재하지 않습니다."));
+
         // 사용자 생성
+        Set<Role> roles = new HashSet<>();
+        roles.add(userRole);
+        
         User user = User.builder()
                 .username(request.getUsername())
                 .email(request.getEmail())
                 .password(passwordEncoder.encode(request.getPassword()))
-                .role(User.Role.USER)
+                .roles(roles)
                 .build();
 
         userRepository.save(user);
@@ -51,12 +64,18 @@ public class AuthService {
         // JWT 토큰 생성
         String token = jwtUtil.generateToken(user);
 
+        // 역할 이름 목록 생성 (첫 번째 역할 사용)
+        String roleName = user.getRoles().stream()
+                .findFirst()
+                .map(Role::getName)
+                .orElse("USER");
+
         return AuthResponse.builder()
                 .token(token)
                 .type("Bearer")
                 .username(user.getUsername())
                 .email(user.getEmail())
-                .role(user.getRole().name())
+                .role(roleName)
                 .build();
     }
 
@@ -78,12 +97,18 @@ public class AuthService {
         // JWT 토큰 생성
         String token = jwtUtil.generateToken(userDetails);
 
+        // 역할 이름 목록 생성 (첫 번째 역할 사용)
+        String roleName = user.getRoles().stream()
+                .findFirst()
+                .map(Role::getName)
+                .orElse("USER");
+
         return AuthResponse.builder()
                 .token(token)
                 .type("Bearer")
                 .username(user.getUsername())
                 .email(user.getEmail())
-                .role(user.getRole().name())
+                .role(roleName)
                 .build();
     }
 }

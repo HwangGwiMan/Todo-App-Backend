@@ -12,7 +12,14 @@ import com.TodoApp.backend.domain.todo.repository.TodoRepository;
 import com.TodoApp.backend.domain.user.entity.User;
 import com.TodoApp.backend.global.exception.BusinessException;
 import com.TodoApp.backend.global.exception.ErrorCode;
+
+import io.micrometer.common.lang.NonNull;
+import jakarta.validation.constraints.NotNull;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
+import org.springframework.cache.annotation.CacheEvict;
+import org.springframework.cache.annotation.Cacheable;
+import org.springframework.cache.annotation.Caching;
 import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -27,6 +34,7 @@ import java.util.stream.Collectors;
 @Service
 @RequiredArgsConstructor
 @Transactional(readOnly = true)
+@Slf4j
 public class ProjectService {
 
     private final ProjectRepository projectRepository;
@@ -37,8 +45,11 @@ public class ProjectService {
     /**
      * 사용자별 프로젝트 목록 조회
      * N+1 문제 해결: 모든 프로젝트의 TODO 개수를 한 번의 쿼리로 조회
+     * 캐시 키: "projectList:userId:{userId}"
      */
+    @Cacheable(value = "projectList", key = "'userId:' + #user.id")
     public List<ProjectResponse> getProjectsByUser(User user) {
+        log.debug("프로젝트 목록 조회 (캐시 미스): userId={}", user.getId());
         // 1. 사용자의 모든 프로젝트 조회 (1 query)
         List<Project> projects = projectRepository.findByUserOrderByPositionAscCreatedAtAsc(user);
         
@@ -62,8 +73,11 @@ public class ProjectService {
 
     /**
      * 프로젝트 상세 조회
+     * 캐시 키: "projects:userId:{userId}:projectId:{projectId}"
      */
+    @Cacheable(value = "projects", key = "'userId:' + #user.id + ':projectId:' + #projectId")
     public ProjectResponse getProject(Long projectId, User user) {
+        log.debug("프로젝트 조회 (캐시 미스): userId={}, projectId={}", user.getId(), projectId);
         Project project = projectRepository.findByIdAndUser(projectId, user)
                 .orElseThrow(() -> new BusinessException(ErrorCode.PROJECT_NOT_FOUND));
         
@@ -73,8 +87,10 @@ public class ProjectService {
 
     /**
      * 프로젝트 생성
+     * 캐시 무효화: 프로젝트 목록 캐시 삭제
      */
     @Transactional
+    @CacheEvict(value = "projectList", key = "'userId:' + #user.id")
     public ProjectResponse createProject(ProjectRequest request, User user) {
         // 프로젝트명 중복 체크
         if (projectRepository.existsByUserAndName(user, request.getName())) {
@@ -114,8 +130,13 @@ public class ProjectService {
 
     /**
      * 프로젝트 수정
+     * 캐시 무효화: 해당 프로젝트와 프로젝트 목록 캐시 삭제
      */
     @Transactional
+    @Caching(evict = {
+        @CacheEvict(value = "projects", key = "'userId:' + #user.id + ':projectId:' + #projectId"),
+        @CacheEvict(value = "projectList", key = "'userId:' + #user.id")
+    })
     public ProjectResponse updateProject(Long projectId, ProjectRequest request, User user) {
         Project project = projectRepository.findByIdAndUser(projectId, user)
                 .orElseThrow(() -> new BusinessException(ErrorCode.PROJECT_NOT_FOUND));
@@ -148,8 +169,13 @@ public class ProjectService {
 
     /**
      * 프로젝트 삭제
+     * 캐시 무효화: 해당 프로젝트와 프로젝트 목록 캐시 삭제
      */
     @Transactional
+    @Caching(evict = {
+        @CacheEvict(value = "projects", key = "'userId:' + #user.id + ':projectId:' + #projectId"),
+        @CacheEvict(value = "projectList", key = "'userId:' + #user.id")
+    })
     public void deleteProject(Long projectId, User user) {
         Project project = projectRepository.findByIdAndUser(projectId, user)
                 .orElseThrow(() -> new BusinessException(ErrorCode.PROJECT_NOT_FOUND));
@@ -171,8 +197,11 @@ public class ProjectService {
 
     /**
      * 사용자의 기본 프로젝트 조회
+     * 캐시 키: "projects:default:userId:{userId}"
      */
+    @Cacheable(value = "projects", key = "'default:userId:' + #user.id")
     public ProjectResponse getDefaultProject(User user) {
+        log.debug("기본 프로젝트 조회 (캐시 미스): userId={}", user.getId());
         Project project = projectRepository.findByUserAndIsDefaultTrue(user)
                 .orElse(null);
         

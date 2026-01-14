@@ -10,7 +10,11 @@ Spring Boot 3.5.7 + Java 17로 구축된 TodoApp 백엔드 API 서버입니다.
 
 - ✅ **Phase 1 완료**: 인증 시스템, TODO CRUD, 검색/필터링/정렬, 페이징, 통계 API, API 문서화
 - ✅ **Phase 2 완료**: 프로젝트 관리, 프로젝트-TODO 연동, 기본 프로젝트 관리, 순서(position) 관리
-- 🚧 **Phase 3 예정**: 고급 검색 기능, TODO 복제/템플릿, 태그 시스템, 성능 최적화, 보안 강화
+- ✅ **Phase 3 완료**: 날짜 범위 검색
+- 🚧 **Phase 4 진행 중**: 아키텍처 개선 및 코드 품질 향상 (우선순위 높음 항목 완료, 캐싱 전략 완료)
+- 📋 **Phase 5 예정**: 파일 출력(Export) 기능 (JSON, Excel, PDF)
+- 📋 **Phase 6 예정**: TODO 일정 관리 및 알림 기능
+- ✅ **Phase 7 완료**: DB 기반 Role & Permission 관리 시스템
 
 ## 🚀 시작하기
 
@@ -889,10 +893,73 @@ class ProjectServiceTest {
 
 ---
 
-**7. 캐싱 전략 구현**
-- 📋 [GitHub Issue #15](https://github.com/HwangGwiMan/Todo-App-Backend/issues/15)
-- 예상 시간: 3-4시간
-- 상세 내용은 `.github/issues/phase4-caching.md` 참조
+**7. 캐싱 전략 구현 ✅ (완료)**
+
+**구현 완료 내용:**
+
+Spring Cache를 활용하여 자주 조회되는 데이터에 대한 캐싱 전략을 구현했습니다.
+
+**1. CacheConfig 설정:**
+
+```java
+@Configuration
+@EnableCaching
+public class CacheConfig {
+    @Bean
+    public CacheManager cacheManager() {
+        SimpleCacheManager cacheManager = new SimpleCacheManager();
+        cacheManager.setCaches(Arrays.asList(
+            new ConcurrentMapCache("todos"),
+            new ConcurrentMapCache("projects"),
+            new ConcurrentMapCache("projectList"),
+            new ConcurrentMapCache("stats")
+        ));
+        return cacheManager;
+    }
+}
+```
+
+**2. TodoService 캐싱 적용:**
+
+- `@Cacheable`: getTodo, getUserStats, getDashboardStats
+- `@CacheEvict`: createTodo, updateTodo, updateTodoStatus, deleteTodo
+- `@Caching` 어노테이션으로 여러 캐시 동시 무효화
+
+**3. ProjectService 캐싱 적용:**
+
+- `@Cacheable`: getProject, getProjectsByUser, getDefaultProject
+- `@CacheEvict`: createProject, updateProject, deleteProject
+- `@Caching` 어노테이션으로 여러 캐시 동시 무효화
+
+**캐시 키 전략:**
+- TODO: `todos:userId:{userId}:todoId:{todoId}`
+- 통계: `stats:user:{userId}`, `stats:dashboard:{userId}`
+- 프로젝트: `projects:userId:{userId}:projectId:{projectId}`, `projects:default:userId:{userId}`
+- 프로젝트 목록: `projectList:userId:{userId}`
+
+**장점:**
+- ✅ 조회 성능 향상 (캐시 히트 시)
+- ✅ 데이터베이스 부하 감소
+- ✅ 응답 시간 단축
+- ✅ 캐시 무효화 전략으로 데이터 일관성 보장
+
+**체크리스트:**
+- [x] @EnableCaching 설정
+- [x] CacheManager 빈 등록
+- [x] 주요 조회 메서드에 @Cacheable 적용
+- [x] 수정/삭제 메서드에 @CacheEvict 적용
+- [x] 캐시 키 전략 설계
+- [x] 캐시 모니터링 로그 추가 (DEBUG 레벨)
+- [ ] 성능 테스트 (수동 테스트 필요)
+
+**완료 시간:** 약 3시간
+
+**상세 내용:** `.github/issues/phase4-caching.md` 참조
+
+**향후 개선:**
+- [ ] Redis 연동 (프로덕션 환경)
+- [ ] 캐시 TTL 설정 (Caffeine 또는 Redis 사용 시)
+- [ ] 분산 캐시 전략
 
 #### 우선순위: 낮음 (선택)
 
@@ -939,7 +1006,7 @@ class ProjectServiceTest {
 
 **우선순위 중간 (권장):** 7-11시간
 - Strategy 패턴으로 검색 로직 분리 (4-5시간 예상)
-- 캐싱 전략 구현 (3-4시간 예상)
+- ~~캐싱 전략 구현~~ ✅ 완료 (3-4시간 소요)
 
 **우선순위 낮음 (선택):** 9-12시간
 - 감사 로그: [Issue #16](https://github.com/HwangGwiMan/Todo-App-Backend/issues/16)
@@ -971,6 +1038,73 @@ class ProjectServiceTest {
 
 ---
 
+### ✅ Phase 7 완료 - DB 기반 Role & Permission 관리 시스템
+
+**📋 [GitHub Issue #23](https://github.com/HwangGwiMan/Todo-App-Backend/issues/23)**
+
+**기능 개요:** 데이터베이스에서 Role과 Permission을 관리하는 유연한 권한 관리 시스템 구축
+
+**완료 시간:** 약 12-15시간
+
+**구현 완료 내용:**
+
+- [x] **엔티티 및 Repository**
+  - Permission 엔티티 생성 (Resource, Action enum)
+  - Role 엔티티 생성 (Permission과 다대다 관계)
+  - User 엔티티 수정 (Role enum → Set<Role>)
+  - RoleRepository, PermissionRepository 생성
+
+- [x] **초기 데이터 설정**
+  - RolePermissionInitializer 생성 (CommandLineRunner)
+  - 기본 Permission 자동 생성 (TODO, PROJECT, USER, ADMIN)
+  - 기본 Role 자동 생성 (USER, ADMIN)
+  - 기존 사용자에 USER 역할 자동 할당
+
+- [x] **Service 계층**
+  - RoleService: 역할 CRUD 및 권한 관리
+  - UserRoleService: 사용자 역할 할당/제거/업데이트
+
+- [x] **DTO 및 Controller**
+  - RoleRequest, RoleResponse, PermissionResponse, UserRoleRequest 생성
+  - RoleController: 역할 관리 API (관리자 전용)
+  - UserRoleController: 사용자 역할 관리 API (관리자 전용)
+  - Swagger/OpenAPI 문서화 완료
+
+- [x] **Spring Security 통합**
+  - SecurityConfig에 Permission 기반 접근 제어 적용
+  - HTTP Method별 세밀한 권한 체크 (GET/POST/PUT/DELETE)
+  - TODO, PROJECT, ADMIN 엔드포인트 권한 설정
+
+- [x] **기타 수정**
+  - AuthService: 회원가입 시 기본 USER 역할 자동 할당
+  - ErrorCode: Role, Permission 관련 에러 코드 추가
+  - User 엔티티: Role enum 제거 및 Set<Role>로 마이그레이션
+
+**기본 Permission:**
+- TODO 권한: `TODO_READ`, `TODO_WRITE`, `TODO_DELETE`
+- PROJECT 권한: `PROJECT_READ`, `PROJECT_WRITE`, `PROJECT_DELETE`
+- USER 권한: `USER_READ`, `USER_MANAGE`
+- ADMIN 권한: `ADMIN_ACCESS`
+
+**기본 Role:**
+- `USER`: 일반 사용자 권한 (TODO, PROJECT CRUD)
+- `ADMIN`: 모든 권한 포함
+
+**API 엔드포인트:**
+- `GET /api/admin/roles`: 모든 역할 조회
+- `GET /api/admin/roles/{id}`: 역할 상세 조회
+- `POST /api/admin/roles`: 역할 생성
+- `PUT /api/admin/roles/{id}`: 역할 수정
+- `DELETE /api/admin/roles/{id}`: 역할 삭제
+- `GET /api/admin/users/{userId}/roles`: 사용자 역할 조회
+- `POST /api/admin/users/{userId}/roles`: 사용자에 역할 할당
+- `DELETE /api/admin/users/{userId}/roles/{roleId}`: 사용자에서 역할 제거
+- `PUT /api/admin/users/{userId}/roles`: 사용자 역할 일괄 업데이트
+
+**상세 내용:** `.github/issues/phase7-role-permission-management.md` 참조
+
+---
+
 ### 📤 Phase 5 - 파일 출력(Export) 기능
 
 **📋 [GitHub Issue #22](https://github.com/HwangGwiMan/Todo-App-Backend/issues/22)**
@@ -993,7 +1127,10 @@ class ProjectServiceTest {
 - ✅ **Phase 1 완료**: 인증 시스템, TODO CRUD, 검색/필터링, 통계 API
 - ✅ **Phase 2 완료**: 프로젝트 관리, 프로젝트-TODO 연동, position 관리
 - ✅ **Phase 3 완료**: 날짜 범위 검색
-- 🚧 **Phase 4 진행 중**: 아키텍처 개선 및 코드 품질 향상 (우선순위 높음 항목 완료)
+- 🚧 **Phase 4 진행 중**: 아키텍처 개선 및 코드 품질 향상 (우선순위 높음 항목 완료, 캐싱 전략 완료)
+- 📋 **Phase 5 예정**: 파일 출력(Export) 기능
+- 📋 **Phase 6 예정**: TODO 일정 관리 및 알림 기능
+- ✅ **Phase 7 완료**: DB 기반 Role & Permission 관리 시스템
 
 ## 🔧 설정
 

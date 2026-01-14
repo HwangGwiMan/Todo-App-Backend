@@ -24,6 +24,9 @@ import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.domain.Sort;
+import org.springframework.cache.annotation.CacheEvict;
+import org.springframework.cache.annotation.Cacheable;
+import org.springframework.cache.annotation.Caching;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.data.jpa.domain.Specification;
@@ -46,8 +49,10 @@ public class TodoService {
 
     /**
      * TODO 생성
+     * 캐시 무효화: 사용자 통계 캐시 삭제
      */
     @Transactional
+    @CacheEvict(value = "stats", key = "'user:' + #userId")
     public TodoResponse createTodo(Long userId, TodoRequest request) {
         User user = userRepository.findById(userId)
                 .orElseThrow(() -> new BusinessException(ErrorCode.USER_NOT_FOUND));
@@ -71,14 +76,21 @@ public class TodoService {
 
     /**
      * TODO 조회 (단건) - 권한 체크
+     * 캐시 키: "todos:userId:{userId}:todoId:{todoId}"
      */
+    @Cacheable(value = "todos", key = "'userId:' + #userId + ':todoId:' + #todoId")
     public TodoResponse getTodo(Long userId, Long todoId) {
+        log.debug("TODO 조회 (캐시 미스): userId={}, todoId={}", userId, todoId);
         Todo todo = todoRepository.findByIdAndUserId(todoId, userId)
                 .orElseThrow(() -> new BusinessException(ErrorCode.TODO_NOT_FOUND));
 
         return todoMapper.toDto(todo);
     }
 
+    /**
+     * TODO 목록 조회 (검색/필터링/페이징)
+     * 검색 조건이 다양하여 캐시 미적용 (동적 쿼리 특성상 캐시 히트율이 낮을 것으로 예상)
+     */
     public Page<TodoResponse> getTodos(@NonNull Long userId, TodoSearchRequest searchRequest) {
         // 사용자 존재 확인
         userRepository.findById(userId)
@@ -107,8 +119,13 @@ public class TodoService {
 
     /**
      * TODO 수정
+     * 캐시 무효화: 해당 TODO와 사용자 통계 캐시 삭제
      */
     @Transactional
+    @Caching(evict = {
+        @CacheEvict(value = "todos", key = "'userId:' + #userId + ':todoId:' + #todoId"),
+        @CacheEvict(value = "stats", key = "'user:' + #userId")
+    })
     public TodoResponse updateTodo(Long userId, Long todoId, TodoRequest request) {
         Todo todo = todoRepository.findByIdAndUserId(todoId, userId)
                 .orElseThrow(() -> new BusinessException(ErrorCode.TODO_NOT_FOUND));
@@ -128,8 +145,13 @@ public class TodoService {
 
     /**
      * TODO 상태 변경
+     * 캐시 무효화: 해당 TODO와 사용자 통계 캐시 삭제
      */
     @Transactional
+    @Caching(evict = {
+        @CacheEvict(value = "todos", key = "'userId:' + #userId + ':todoId:' + #todoId"),
+        @CacheEvict(value = "stats", key = "'user:' + #userId")
+    })
     public TodoResponse updateTodoStatus(Long userId, Long todoId, Todo.TodoStatus status) {
         Todo todo = todoRepository.findByIdAndUserId(todoId, userId)
                 .orElseThrow(() -> new BusinessException(ErrorCode.TODO_NOT_FOUND));
@@ -147,8 +169,13 @@ public class TodoService {
 
     /**
      * TODO 삭제
+     * 캐시 무효화: 해당 TODO와 사용자 통계 캐시 삭제
      */
     @Transactional
+    @Caching(evict = {
+        @CacheEvict(value = "todos", key = "'userId:' + #userId + ':todoId:' + #todoId"),
+        @CacheEvict(value = "stats", key = "'user:' + #userId")
+    })
     public void deleteTodo(Long userId, Long todoId) {
         Todo todo = todoRepository.findByIdAndUserId(todoId, userId)
                 .orElseThrow(() -> new BusinessException(ErrorCode.TODO_NOT_FOUND));
@@ -164,8 +191,11 @@ public class TodoService {
 
     /**
      * 사용자 통계 조회
+     * 캐시 키: "stats:user:{userId}"
      */
+    @Cacheable(value = "stats", key = "'user:' + #userId")
     public TodoStatsResponse getUserStats(Long userId) {
+        log.debug("통계 조회 (캐시 미스): userId={}", userId);
         long totalCount = todoRepository.countByUserId(userId);
         long todoCount = todoRepository.countByUserIdAndStatus(userId, Todo.TodoStatus.TODO);
         long inProgressCount = todoRepository.countByUserIdAndStatus(userId, Todo.TodoStatus.IN_PROGRESS);
@@ -185,8 +215,11 @@ public class TodoService {
 
     /**
      * 대시보드 통계 조회 (JOOQ 사용)
+     * 캐시 키: "stats:dashboard:{userId}"
      */
+    @Cacheable(value = "stats", key = "'dashboard:' + #userId")
     public TodoDashboardStatsResponse getDashboardStats(Long userId) {
+        log.debug("대시보드 통계 조회 (캐시 미스): userId={}", userId);
         // 기본 통계
         long totalCount = todoRepository.countByUserId(userId);
         long todoCount = todoRepository.countByUserIdAndStatus(userId, Todo.TodoStatus.TODO);

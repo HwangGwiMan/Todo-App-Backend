@@ -49,16 +49,55 @@ public TodoResponse updateTodo(Long userId, Long todoId, TodoRequest request) {
 - 캐시 일관성 보장
 
 ## 체크리스트
-- [ ] @EnableCaching 설정
-- [ ] CacheManager 빈 등록
-- [ ] 주요 조회 메서드에 @Cacheable 적용
-- [ ] 수정/삭제 메서드에 @CacheEvict 적용
-- [ ] 캐시 키 전략 설계
-- [ ] 캐시 모니터링 로그 추가
-- [ ] 성능 테스트
+- [x] @EnableCaching 설정
+- [x] CacheManager 빈 등록
+- [x] 주요 조회 메서드에 @Cacheable 적용
+  - [x] TodoService: getTodo, getUserStats, getDashboardStats
+  - [x] ProjectService: getProject, getProjectsByUser, getDefaultProject
+- [x] 수정/삭제 메서드에 @CacheEvict 적용
+  - [x] TodoService: createTodo, updateTodo, updateTodoStatus, deleteTodo
+  - [x] ProjectService: createProject, updateProject, deleteProject
+- [x] 캐시 키 전략 설계
+  - TODO: `todos:userId:{userId}:todoId:{todoId}`
+  - 통계: `stats:user:{userId}`, `stats:dashboard:{userId}`
+  - 프로젝트: `projects:userId:{userId}:projectId:{projectId}`, `projects:default:userId:{userId}`
+  - 프로젝트 목록: `projectList:userId:{userId}`
+- [x] 캐시 모니터링 로그 추가 (DEBUG 레벨)
+- [ ] 성능 테스트 (수동 테스트 필요)
+
+## 구현 완료 내역
+
+**구현된 캐시:**
+1. `todos`: TODO 단건 조회 캐시
+2. `projects`: 프로젝트 단건 조회 캐시
+3. `projectList`: 프로젝트 목록 캐시 (사용자별)
+4. `stats`: 통계 정보 캐시 (사용자별)
+
+**캐시 키 전략:**
+- TODO: `todos:userId:{userId}:todoId:{todoId}`
+- 통계: `stats:user:{userId}`, `stats:dashboard:{userId}`
+- 프로젝트: `projects:userId:{userId}:projectId:{projectId}`, `projects:default:userId:{userId}`
+- 프로젝트 목록: `projectList:userId:{userId}`
+
+**적용된 메서드:**
+- **TodoService**:
+  - `@Cacheable`: getTodo, getUserStats, getDashboardStats
+  - `@CacheEvict`: createTodo, updateTodo, updateTodoStatus, deleteTodo
+- **ProjectService**:
+  - `@Cacheable`: getProject, getProjectsByUser, getDefaultProject
+  - `@CacheEvict`: createProject, updateProject, deleteProject
+
+**기술 구현:**
+- SimpleCacheManager 사용 (ConcurrentMapCache)
+- @Caching 어노테이션으로 여러 캐시 동시 무효화
+- DEBUG 레벨 로그로 캐시 미스 모니터링
+
+**완료 시간**: 약 3시간
 
 ## 향후 개선
-- [ ] Redis 연동
-- [ ] 캐시 TTL 설정
+- [ ] Redis 연동 (프로덕션 환경)
+- [ ] 캐시 TTL 설정 (Caffeine 또는 Redis 사용 시)
 - [ ] 분산 캐시 전략
+- [ ] 캐시 히트율 모니터링
+- [ ] 캐시 통계 대시보드
 
