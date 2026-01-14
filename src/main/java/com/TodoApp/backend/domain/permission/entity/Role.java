@@ -20,7 +20,10 @@ import java.util.Set;
 @AllArgsConstructor
 @Getter
 @Setter
-@EqualsAndHashCode(callSuper = true)
+// FIX: Use only ID for equals/hashCode
+@EqualsAndHashCode(of = "id")
+// FIX: Exclude lazy collections from toString
+@ToString(exclude = "permissions")
 public class Role extends BaseEntity {
     
     @Column(nullable = false, unique = true, length = 50)

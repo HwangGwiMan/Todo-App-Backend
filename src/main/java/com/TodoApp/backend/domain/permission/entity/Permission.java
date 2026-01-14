@@ -19,7 +19,10 @@ import java.util.Set;
 @AllArgsConstructor
 @Getter
 @Setter
-@EqualsAndHashCode(callSuper = true)
+// FIX: Use only ID for equals/hashCode to prevent accessing lazy collections
+@EqualsAndHashCode(of = "id") 
+// FIX: Exclude lazy collections from toString to prevent LazyInitializationException in logs
+@ToString(exclude = "roles")
 public class Permission extends BaseEntity {
     
     @Column(nullable = false, unique = true, length = 100)
