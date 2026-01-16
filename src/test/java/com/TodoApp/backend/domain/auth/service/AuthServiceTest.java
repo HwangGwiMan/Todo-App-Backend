@@ -3,6 +3,8 @@ package com.TodoApp.backend.domain.auth.service;
 import com.TodoApp.backend.domain.auth.dto.AuthResponse;
 import com.TodoApp.backend.domain.auth.dto.LoginRequest;
 import com.TodoApp.backend.domain.auth.dto.SignupRequest;
+import com.TodoApp.backend.domain.permission.entity.Role;
+import com.TodoApp.backend.domain.permission.repository.RoleRepository;
 import com.TodoApp.backend.domain.user.entity.User;
 import com.TodoApp.backend.domain.user.repository.UserRepository;
 import com.TodoApp.backend.global.exception.BusinessException;
@@ -23,6 +25,7 @@ import org.springframework.security.core.userdetails.UserDetails;
 import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 import org.springframework.security.crypto.password.PasswordEncoder;
 
+import java.util.HashSet;
 import java.util.Optional;
 
 import static org.assertj.core.api.Assertions.assertThat;
@@ -40,6 +43,9 @@ class AuthServiceTest {
     private UserRepository userRepository;
 
     @Mock
+    private RoleRepository roleRepository;
+
+    @Mock
     private PasswordEncoder passwordEncoder;
 
     @Mock
@@ -55,13 +61,15 @@ class AuthServiceTest {
     private SignupRequest signupRequest;
     private LoginRequest loginRequest;
 
+    private Role role;
+
     @BeforeEach
     void setUp() {
         testUser = User.builder()
                 .username("testuser")
                 .email("test@example.com")
                 .password("encodedPassword")
-                .role(User.Role.USER)
+                .roles(new HashSet<>(1))
                 .build();
         testUser.setId(1L);
 
@@ -73,6 +81,13 @@ class AuthServiceTest {
         loginRequest = new LoginRequest();
         loginRequest.setUsername("testuser");
         loginRequest.setPassword("password123");
+
+        role = Role.builder()
+                .id(1L)
+                .name("USER")
+                .description("Default user role")
+                .permissions(new HashSet<>()) // Empty set for permissions in this test context
+                .build();
     }
 
     @Test
@@ -83,6 +98,7 @@ class AuthServiceTest {
         when(userRepository.existsByEmail("test@example.com")).thenReturn(false);
         when(passwordEncoder.encode("password123")).thenReturn("encodedPassword");
         when(userRepository.save(any(User.class))).thenReturn(testUser);
+        when(roleRepository.findByName("USER")).thenReturn(Optional.of(role));
         when(jwtUtil.generateToken(any(User.class))).thenReturn("jwt-token");
 
         // When

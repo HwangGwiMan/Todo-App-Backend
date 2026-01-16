@@ -1,7 +1,11 @@
 package com.TodoApp.backend.fixture;
 
+import com.TodoApp.backend.domain.permission.entity.Role;
 import com.TodoApp.backend.domain.user.entity.User;
 import com.TodoApp.backend.fixture.core.BaseFixture;
+
+import java.util.HashSet;
+import java.util.Set;
 
 /**
  * User 엔티티를 위한 Fixture
@@ -20,7 +24,7 @@ public class UserFixture extends BaseFixture<User, User.UserBuilder> {
                 .username("user" + nextGlobalId())
                 .email("user" + nextGlobalId() + "@example.com")
                 .password("password123")
-                .role(User.Role.USER);
+                .roles(new HashSet<>(1));
     }
     
     @Override
@@ -34,7 +38,7 @@ public class UserFixture extends BaseFixture<User, User.UserBuilder> {
     }
     
     public static User anAdmin() {
-        return user().a(builder -> builder.role(User.Role.ADMIN));
+        return user().a(builder -> builder.roles(new HashSet<>(2)));
     }
     
     public static User aUserWith(String username) {
@@ -48,8 +52,8 @@ public class UserFixture extends BaseFixture<User, User.UserBuilder> {
         });
     }
     
-    public static User aUserWithRole(User.Role role) {
-        return user().a(builder -> builder.role(role));
+    public static User aUserWithRole(Set<Role> roles) {
+        return user().a(builder -> builder.roles(roles));
     }
 }
 
