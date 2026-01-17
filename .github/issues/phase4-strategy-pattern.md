@@ -42,3 +42,6 @@ Strategy 패턴을 사용하여 TODO 검색 로직을 분리하고 확장 가능
 - Specification 패턴이 이미 구현되어 있다면 이 패턴은 선택사항입니다.
 - 더 복잡한 검색 시나리오가 필요한 경우에만 구현을 고려하세요.
 
+# 종결 (Closure)
+**2026년 1월 17일**: 현재 코드베이스 분석 결과, TODO 검색 로직에 이미 Spring Data JPA Specification 패턴이 완벽하게 구현 및 적용되어 있음을 확인했습니다. `TodoService`는 `TodoSpecification`을 통해 동적 쿼리를 효율적으로 처리하고 있으며, 이는 본 이슈에서 Strategy 패턴을 통해 개선하고자 했던 목표를 이미 달성하고 있습니다. 따라서 Strategy 패턴 도입은 중복이며 불필요하다고 판단되어 본 이슈를 종결합니다.
+
