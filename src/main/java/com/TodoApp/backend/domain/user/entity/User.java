@@ -36,7 +36,7 @@ public class User extends BaseEntity implements UserDetails {
     @Column(nullable = false)
     private String password;
 
-    @ManyToMany(fetch = FetchType.EAGER)  // 권한 조회를 위해 EAGER
+    @ManyToMany(fetch = FetchType.LAZY)  // 권한 조회를 위해 LAZY로 변경하고, 필요 시 JOIN FETCH 사용
     @JoinTable(
         name = "user_roles",
         joinColumns = @JoinColumn(name = "user_id"),

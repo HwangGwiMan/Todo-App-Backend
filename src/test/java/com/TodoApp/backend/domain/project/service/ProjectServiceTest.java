@@ -21,6 +21,7 @@ import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.context.ApplicationEventPublisher;
 
 import java.util.Arrays;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Optional;
 
@@ -59,7 +60,7 @@ class ProjectServiceTest {
                 .username("testuser")
                 .email("test@example.com")
                 .password("password")
-                .role(User.Role.USER)
+                .roles(new HashSet<>(1))
                 .build();
         testUser.setId(1L);
 

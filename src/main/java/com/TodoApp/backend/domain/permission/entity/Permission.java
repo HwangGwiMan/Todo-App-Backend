@@ -6,6 +6,7 @@ import lombok.*;
 import lombok.experimental.SuperBuilder;
 
 import java.util.HashSet;
+import java.util.Objects;
 import java.util.Set;
 
 /**
@@ -20,7 +21,7 @@ import java.util.Set;
 @Getter
 @Setter
 // FIX: Use only ID for equals/hashCode to prevent accessing lazy collections
-@EqualsAndHashCode(of = "id") 
+//@EqualsAndHashCode(of = "id")
 // FIX: Exclude lazy collections from toString to prevent LazyInitializationException in logs
 @ToString(exclude = "roles")
 public class Permission extends BaseEntity {
@@ -62,5 +63,14 @@ public class Permission extends BaseEntity {
      */
     public String getPermissionName() {
         return resource.name() + "_" + action.name();
+    }
+
+    @Override
+    public boolean equals(Object o) {
+        if (this == o) return true;
+        if (o == null || getClass() != o.getClass()) return false;
+        Permission that = (Permission) o;
+        // equals를 직접 구현하면서 BaseEntity의 id를 비교함
+        return super.equals(o) && Objects.equals(name, that.name) && Objects.equals(description, that.description) && resource == that.resource && action == that.action && Objects.equals(roles, that.roles);
     }
 }
