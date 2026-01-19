@@ -15,6 +15,7 @@ import com.TodoApp.backend.global.exception.BusinessException;
 import com.TodoApp.backend.global.exception.ErrorCode;
 import com.TodoApp.backend.domain.todo.mapper.TodoMapper;
 import com.TodoApp.backend.domain.todo.repository.specification.TodoSpecification;
+import com.TodoApp.backend.global.audit.annotation.Auditable;
 
 import lombok.NonNull;
 import lombok.RequiredArgsConstructor;
@@ -53,6 +54,7 @@ public class TodoService {
      */
     @Transactional
     @CacheEvict(value = "stats", key = "'user:' + #userId")
+    @Auditable(action = "CREATE", entityName = "Todo")
     public TodoResponse createTodo(Long userId, TodoRequest request) {
         User user = userRepository.findById(userId)
                 .orElseThrow(() -> new BusinessException(ErrorCode.USER_NOT_FOUND));
@@ -126,6 +128,7 @@ public class TodoService {
         @CacheEvict(value = "todos", key = "'userId:' + #userId + ':todoId:' + #todoId"),
         @CacheEvict(value = "stats", key = "'user:' + #userId")
     })
+    @Auditable(action = "UPDATE", entityName = "Todo")
     public TodoResponse updateTodo(Long userId, Long todoId, TodoRequest request) {
         Todo todo = todoRepository.findByIdAndUserId(todoId, userId)
                 .orElseThrow(() -> new BusinessException(ErrorCode.TODO_NOT_FOUND));
@@ -152,6 +155,7 @@ public class TodoService {
         @CacheEvict(value = "todos", key = "'userId:' + #userId + ':todoId:' + #todoId"),
         @CacheEvict(value = "stats", key = "'user:' + #userId")
     })
+    @Auditable(action = "UPDATE", entityName = "Todo")
     public TodoResponse updateTodoStatus(Long userId, Long todoId, Todo.TodoStatus status) {
         Todo todo = todoRepository.findByIdAndUserId(todoId, userId)
                 .orElseThrow(() -> new BusinessException(ErrorCode.TODO_NOT_FOUND));
@@ -176,6 +180,7 @@ public class TodoService {
         @CacheEvict(value = "todos", key = "'userId:' + #userId + ':todoId:' + #todoId"),
         @CacheEvict(value = "stats", key = "'user:' + #userId")
     })
+    @Auditable(action = "DELETE", entityName = "Todo")
     public void deleteTodo(Long userId, Long todoId) {
         Todo todo = todoRepository.findByIdAndUserId(todoId, userId)
                 .orElseThrow(() -> new BusinessException(ErrorCode.TODO_NOT_FOUND));
