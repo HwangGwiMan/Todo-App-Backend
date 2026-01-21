@@ -10,11 +10,10 @@ import com.TodoApp.backend.domain.project.mapper.ProjectMapper;
 import com.TodoApp.backend.domain.project.repository.ProjectRepository;
 import com.TodoApp.backend.domain.todo.repository.TodoRepository;
 import com.TodoApp.backend.domain.user.entity.User;
+import com.TodoApp.backend.global.audit.annotation.Auditable;
 import com.TodoApp.backend.global.exception.BusinessException;
 import com.TodoApp.backend.global.exception.ErrorCode;
 
-import io.micrometer.common.lang.NonNull;
-import jakarta.validation.constraints.NotNull;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.cache.annotation.CacheEvict;
@@ -91,6 +90,7 @@ public class ProjectService {
      */
     @Transactional
     @CacheEvict(value = "projectList", key = "'userId:' + #user.id")
+    @Auditable(action = "CREATE", entityName = "Project")
     public ProjectResponse createProject(ProjectRequest request, User user) {
         // 프로젝트명 중복 체크
         if (projectRepository.existsByUserAndName(user, request.getName())) {
@@ -137,6 +137,7 @@ public class ProjectService {
         @CacheEvict(value = "projects", key = "'userId:' + #user.id + ':projectId:' + #projectId"),
         @CacheEvict(value = "projectList", key = "'userId:' + #user.id")
     })
+    @Auditable(action = "UPDATE", entityName = "Project")
     public ProjectResponse updateProject(Long projectId, ProjectRequest request, User user) {
         Project project = projectRepository.findByIdAndUser(projectId, user)
                 .orElseThrow(() -> new BusinessException(ErrorCode.PROJECT_NOT_FOUND));
@@ -176,6 +177,7 @@ public class ProjectService {
         @CacheEvict(value = "projects", key = "'userId:' + #user.id + ':projectId:' + #projectId"),
         @CacheEvict(value = "projectList", key = "'userId:' + #user.id")
     })
+    @Auditable(action = "DELETE", entityName = "Project")
     public void deleteProject(Long projectId, User user) {
         Project project = projectRepository.findByIdAndUser(projectId, user)
                 .orElseThrow(() -> new BusinessException(ErrorCode.PROJECT_NOT_FOUND));
