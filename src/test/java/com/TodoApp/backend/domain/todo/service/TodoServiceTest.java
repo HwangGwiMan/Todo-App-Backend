@@ -99,15 +99,15 @@ class TodoServiceTest {
 
         lenient().when(todoMapper.toEntity(any(TodoRequest.class))).thenAnswer(invocation -> {
             TodoRequest request = invocation.getArgument(0);
-            return Todo.builder()
-                    .title(request.getTitle())
-                    .description(request.getDescription())
-                    .status(request.getStatus())
-                    .priority(request.getPriority())
-                    .dueDate(request.getDueDate())
-                    .position(request.getPosition())
-                    .projectId(request.getProjectId())
-                    .build();
+            Todo todo = TodoFixture.aTodoFor(testUser);
+            todo.setTitle(request.getTitle());
+            todo.setDescription(request.getDescription());
+            todo.setStatus(request.getStatus());
+            todo.setPriority(request.getPriority());
+            todo.setDueDate(request.getDueDate());
+            todo.setPosition(request.getPosition());
+            todo.setProjectId(request.getProjectId());
+            return todo;
         });
 
         lenient().doAnswer(invocation -> {
@@ -371,13 +371,11 @@ class TodoServiceTest {
                 .priority(Todo.Priority.HIGH)
                 .build();
 
-        Todo updatedTodo = Todo.builder()
-                .user(testUser)
-                .title("수정된 제목")
-                .description("수정된 설명")
-                .status(Todo.TodoStatus.IN_PROGRESS)
-                .priority(Todo.Priority.HIGH)
-                .build();
+        Todo updatedTodo = TodoFixture.aTodoFor(testUser);
+        updatedTodo.setTitle("수정된 제목");
+        updatedTodo.setDescription("수정된 설명");
+        updatedTodo.setStatus(Todo.TodoStatus.IN_PROGRESS);
+        updatedTodo.setPriority(Todo.Priority.HIGH);
         updatedTodo.setId(1L);
 
         when(todoRepository.findByIdAndUserId(1L, 1L)).thenReturn(Optional.of(testTodo));
@@ -424,11 +422,8 @@ class TodoServiceTest {
     @DisplayName("TODO 상태 변경 성공")
     void updateTodoStatus_성공() {
         // Given
-        Todo updatedTodo = Todo.builder()
-                .user(testUser)
-                .title("테스트 TODO")
-                .status(Todo.TodoStatus.DONE)
-                .build();
+        Todo updatedTodo = TodoFixture.aCompletedTodoFor(testUser);
+        updatedTodo.setTitle("테스트 TODO");
         updatedTodo.setId(1L);
 
         when(todoRepository.findByIdAndUserId(1L, 1L)).thenReturn(Optional.of(testTodo));

@@ -9,10 +9,15 @@ import java.util.function.Consumer;
 
 /**
  * Project 엔티티를 위한 Fixture
+ * test-utils 기반으로 리팩토링되었습니다.
  */
 public class ProjectFixture extends BaseFixture<Project, Project.ProjectBuilder> {
     
     private static final ProjectFixture INSTANCE = new ProjectFixture();
+    
+    private ProjectFixture() {
+        super(Project.class);
+    }
     
     public static ProjectFixture project() {
         return INSTANCE;
@@ -20,6 +25,7 @@ public class ProjectFixture extends BaseFixture<Project, Project.ProjectBuilder>
     
     @Override
     protected Project.ProjectBuilder defaultBuilder() {
+        // 하위 호환성을 위해 유지, 실제로는 사용되지 않음
         return Project.builder()
                 .name("프로젝트 " + nextGlobalId())
                 .description("프로젝트 설명")
@@ -30,7 +36,36 @@ public class ProjectFixture extends BaseFixture<Project, Project.ProjectBuilder>
     
     @Override
     protected Project buildFrom(Project.ProjectBuilder builder) {
+        // 하위 호환성을 위해 유지, 실제로는 사용되지 않음
         return builder.build();
+    }
+    
+    @Override
+    protected void applyCustomization(Project entity, Consumer<Project.ProjectBuilder> customizer) {
+        // 빌더를 사용하여 커스터마이징을 엔티티에 적용
+        Project.ProjectBuilder builder = Project.builder()
+                .name(entity.getName())
+                .description(entity.getDescription())
+                .color(entity.getColor())
+                .isDefault(entity.getIsDefault())
+                .position(entity.getPosition());
+        customizer.accept(builder);
+        Project customized = builder.build();
+        
+        // 엔티티에 변경사항 적용
+        entity.setName(customized.getName());
+        entity.setDescription(customized.getDescription());
+        entity.setColor(customized.getColor());
+        entity.setIsDefault(customized.getIsDefault());
+        entity.setPosition(customized.getPosition());
+    }
+    
+    @Override
+    public Project aDefault() {
+        // 빌더를 사용하여 기본 Project 생성
+        Project project = defaultBuilder().build();
+        project.setId(nextId());
+        return project;
     }
     
     // 연관 관계를 포함한 생성 메서드
@@ -47,21 +82,23 @@ public class ProjectFixture extends BaseFixture<Project, Project.ProjectBuilder>
     }
     
     public static Project aDefaultProjectFor(User user) {
-        Project project = project().a(builder -> builder
-                .name("기본 프로젝트")
-                .isDefault(true));
+        Project project = project().aDefault();
+        project.setName("기본 프로젝트");
+        project.setIsDefault(true);
         project.setUser(user);
         return project;
     }
     
     public static Project aProjectWithColor(User user, String color) {
-        Project project = project().a(builder -> builder.color(color));
+        Project project = project().aDefault();
+        project.setColor(color);
         project.setUser(user);
         return project;
     }
     
     public static Project aProjectWithName(User user, String name) {
-        Project project = project().a(builder -> builder.name(name));
+        Project project = project().aDefault();
+        project.setName(name);
         project.setUser(user);
         return project;
     }
