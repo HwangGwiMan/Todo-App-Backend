@@ -76,7 +76,7 @@ public class TestDataGraph {
         );
         T entity = null;
         try {
-            entity = support.monkey();
+            entity = support.monkey(r -> {});
         } catch (NoSuchMethodError | NullPointerException e) {
             // monkey() 메서드가 존재하지 않거나 null을 반환하는 경우
             entity = null;
@@ -98,16 +98,13 @@ public class TestDataGraph {
         );
         T entity = null;
         try {
-            entity = support.monkey();
+            entity = support.monkey(customizer != null ? customizer : r -> {});
         } catch (NoSuchMethodError | NullPointerException e) {
             // monkey() 메서드가 존재하지 않거나 null을 반환하는 경우
             entity = null;
         }
         if (entity == null) {
             throw new UnsupportedOperationException("TestSupport.monkey() is not available. Use Fixture classes instead.");
-        }
-        if (customizer != null) {
-            customizer.accept(entity);
         }
         return with(entityClass, entity);
     }

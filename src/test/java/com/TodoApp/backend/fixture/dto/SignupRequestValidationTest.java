@@ -1,7 +1,6 @@
 package com.TodoApp.backend.fixture.dto;
 
 import com.TodoApp.backend.domain.auth.dto.SignupRequest;
-import com.core.test.utils.TestSupport;
 import jakarta.validation.ConstraintViolation;
 import jakarta.validation.Validation;
 import jakarta.validation.Validator;
@@ -9,6 +8,7 @@ import jakarta.validation.ValidatorFactory;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
+import com.core.test.utils.TestSupport;
 
 import java.util.Set;
 
@@ -22,20 +22,19 @@ import static org.assertj.core.api.Assertions.assertThat;
 class SignupRequestValidationTest {
 
     private static Validator validator;
-    private static TestSupport<SignupRequest> signupRequestSupport;
+    private static final TestSupport<SignupRequest> signupRequestSupport = new TestSupport<>(SignupRequest.class);
 
     @BeforeAll
     static void setUp() {
         ValidatorFactory factory = Validation.buildDefaultValidatorFactory();
         validator = factory.getValidator();
-        signupRequestSupport = new TestSupport<>(SignupRequest.class);
     }
 
     @Test
     @DisplayName("유효한 SignupRequest 생성")
     void 유효한_SignupRequest_생성() {
         // Given
-        SignupRequest request = new SignupRequest();
+        SignupRequest request = signupRequestSupport.monkey();
         request.setUsername("testuser");
         request.setEmail("test@example.com");
         request.setPassword("password123");
@@ -51,7 +50,7 @@ class SignupRequestValidationTest {
     @DisplayName("username이 null인 경우 검증 실패")
     void username_null_검증_실패() {
         // Given
-        SignupRequest request = new SignupRequest();
+        SignupRequest request = signupRequestSupport.monkey();
         request.setUsername(null);
         request.setEmail("test@example.com");
         request.setPassword("password123");

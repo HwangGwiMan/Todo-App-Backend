@@ -12,6 +12,7 @@ import com.TodoApp.backend.domain.user.entity.User;
 import com.TodoApp.backend.fixture.ProjectFixture;
 import com.TodoApp.backend.fixture.UserFixture;
 import com.TodoApp.backend.global.exception.BusinessException;
+import com.core.test.utils.TestSupport;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -35,6 +36,9 @@ import static org.mockito.Mockito.lenient;
 @ExtendWith(MockitoExtension.class)
 @DisplayName("ProjectService 테스트")
 class ProjectServiceTest {
+
+    private static final TestSupport<ProjectRequest> projectRequestSupport = new TestSupport<>(ProjectRequest.class);
+    private static final TestSupport<Project> projectSupport = new TestSupport<>(Project.class);
 
     @Mock
     private ProjectRepository projectRepository;
@@ -61,12 +65,12 @@ class ProjectServiceTest {
         testUser = UserFixture.aUser();
         testUser.setId(1L);
 
-        testProject = ProjectFixture.aProjectFor(testUser);
+        testProject = projectSupport.monkey();
         testProject.setName("테스트 프로젝트");
         testProject.setDescription("테스트 설명");
         testProject.setId(1L);
 
-        projectRequest = new ProjectRequest();
+        projectRequest = projectRequestSupport.monkey();
         projectRequest.setName("새로운 프로젝트");
         projectRequest.setDescription("새로운 설명");
         projectRequest.setColor("#FF0000");

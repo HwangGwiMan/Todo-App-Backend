@@ -15,6 +15,7 @@ import com.TodoApp.backend.domain.user.repository.UserRepository;
 import com.TodoApp.backend.fixture.TodoFixture;
 import com.TodoApp.backend.fixture.UserFixture;
 import com.TodoApp.backend.global.exception.BusinessException;
+import com.core.test.utils.TestSupport;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -41,10 +42,15 @@ import static org.mockito.ArgumentMatchers.*;
 import static org.mockito.Mockito.*;
 import static org.mockito.Mockito.lenient;
 
+
 @ExtendWith(MockitoExtension.class)
 @DisplayName("TodoService 테스트")
 class TodoServiceTest {
 
+    private static final TestSupport<TodoRequest> todoRequestSupport = new TestSupport<>(TodoRequest.class);
+    private static final TestSupport<TodoSearchRequest> todoSearchRequestSupport = new TestSupport<>(TodoSearchRequest.class);
+    private static final TestSupport<Todo> todoSupport = new TestSupport<>(Todo.class);
+    
     @Mock
     private TodoRepository todoRepository;
 
@@ -70,12 +76,11 @@ class TodoServiceTest {
         testUser = UserFixture.aUser();
         testTodo = TodoFixture.aTodoFor(testUser);
 
-        todoRequest = TodoRequest.builder()
-                .title("새로운 TODO")
-                .description("새로운 설명")
-                .status(Todo.TodoStatus.TODO)
-                .priority(Todo.Priority.HIGH)
-                .build();
+        todoRequest = todoRequestSupport.monkey();
+        todoRequest.setTitle("새로운 TODO");
+        todoRequest.setDescription("새로운 설명");
+        todoRequest.setStatus(Todo.TodoStatus.TODO);
+        todoRequest.setPriority(Todo.Priority.HIGH);
 
         // Mapper stub 추가
         lenient().when(todoMapper.toDto(any(Todo.class))).thenAnswer(invocation -> {
@@ -202,12 +207,11 @@ class TodoServiceTest {
     @DisplayName("TODO 목록 조회 - 전체 조회")
     void getTodos_전체_조회() {
         // Given
-        TodoSearchRequest searchRequest = TodoSearchRequest.builder()
-                .page(0)
-                .size(10)
-                .sortBy("createdAt")
-                .sortDirection("DESC")
-                .build();
+        TodoSearchRequest searchRequest = todoSearchRequestSupport.monkey();
+        searchRequest.setPage(0);
+        searchRequest.setSize(10);
+        searchRequest.setSortBy("createdAt");
+        searchRequest.setSortDirection("DESC");
 
         // Fixture를 사용하여 여러 Todo 생성
         List<Todo> todos = TodoFixture.todosFor(testUser, 3);
@@ -230,13 +234,12 @@ class TodoServiceTest {
     @DisplayName("TODO 목록 조회 - 키워드 검색")
     void getTodos_키워드_검색() {
         // Given
-        TodoSearchRequest searchRequest = TodoSearchRequest.builder()
-                .keyword("테스트")
-                .page(0)
-                .size(10)
-                .sortBy("createdAt")
-                .sortDirection("DESC")
-                .build();
+        TodoSearchRequest searchRequest = todoSearchRequestSupport.monkey();
+        searchRequest.setKeyword("테스트");
+        searchRequest.setPage(0);
+        searchRequest.setSize(10);
+        searchRequest.setSortBy("createdAt");
+        searchRequest.setSortDirection("DESC");
 
         Page<Todo> todoPage = new PageImpl<>(Arrays.asList(testTodo));
         when(userRepository.findById(1L)).thenReturn(Optional.of(testUser));
@@ -256,13 +259,12 @@ class TodoServiceTest {
     @DisplayName("TODO 목록 조회 - 상태 필터")
     void getTodos_상태_필터() {
         // Given
-        TodoSearchRequest searchRequest = TodoSearchRequest.builder()
-                .status(Todo.TodoStatus.TODO)
-                .page(0)
-                .size(10)
-                .sortBy("createdAt")
-                .sortDirection("DESC")
-                .build();
+        TodoSearchRequest searchRequest = todoSearchRequestSupport.monkey();
+        searchRequest.setStatus(Todo.TodoStatus.TODO);
+        searchRequest.setPage(0);
+        searchRequest.setSize(10);
+        searchRequest.setSortBy("createdAt");
+        searchRequest.setSortDirection("DESC");
 
         Page<Todo> todoPage = new PageImpl<>(Arrays.asList(testTodo));
         when(userRepository.findById(1L)).thenReturn(Optional.of(testUser));
@@ -282,13 +284,12 @@ class TodoServiceTest {
     @DisplayName("TODO 목록 조회 - 우선순위 필터")
     void getTodos_우선순위_필터() {
         // Given
-        TodoSearchRequest searchRequest = TodoSearchRequest.builder()
-                .priority(Todo.Priority.HIGH)
-                .page(0)
-                .size(10)
-                .sortBy("createdAt")
-                .sortDirection("DESC")
-                .build();
+        TodoSearchRequest searchRequest = todoSearchRequestSupport.monkey();
+        searchRequest.setPriority(Todo.Priority.HIGH);
+        searchRequest.setPage(0);
+        searchRequest.setSize(10);
+        searchRequest.setSortBy("createdAt");
+        searchRequest.setSortDirection("DESC");
 
         Page<Todo> todoPage = new PageImpl<>(Arrays.asList(testTodo));
         when(userRepository.findById(1L)).thenReturn(Optional.of(testUser));
@@ -311,14 +312,13 @@ class TodoServiceTest {
         LocalDateTime startDate = LocalDateTime.of(2025, 1, 1, 0, 0);
         LocalDateTime endDate = LocalDateTime.of(2025, 12, 31, 23, 59);
 
-        TodoSearchRequest searchRequest = TodoSearchRequest.builder()
-                .dueDateStart(startDate)
-                .dueDateEnd(endDate)
-                .page(0)
-                .size(10)
-                .sortBy("createdAt")
-                .sortDirection("DESC")
-                .build();
+        TodoSearchRequest searchRequest = todoSearchRequestSupport.monkey();
+        searchRequest.setDueDateStart(startDate);
+        searchRequest.setDueDateEnd(endDate);
+        searchRequest.setPage(0);
+        searchRequest.setSize(10);
+        searchRequest.setSortBy("createdAt");
+        searchRequest.setSortDirection("DESC");
 
         Page<Todo> todoPage = new PageImpl<>(Arrays.asList(testTodo));
         when(userRepository.findById(1L)).thenReturn(Optional.of(testUser));
@@ -338,13 +338,12 @@ class TodoServiceTest {
     @DisplayName("TODO 목록 조회 - 프로젝트 필터")
     void getTodos_프로젝트_필터() {
         // Given
-        TodoSearchRequest searchRequest = TodoSearchRequest.builder()
-                .projectId(1L)
-                .page(0)
-                .size(10)
-                .sortBy("createdAt")
-                .sortDirection("DESC")
-                .build();
+        TodoSearchRequest searchRequest = todoSearchRequestSupport.monkey();
+        searchRequest.setProjectId(1L);
+        searchRequest.setPage(0);
+        searchRequest.setSize(10);
+        searchRequest.setSortBy("createdAt");
+        searchRequest.setSortDirection("DESC");
 
         Page<Todo> todoPage = new PageImpl<>(Arrays.asList(testTodo));
         when(userRepository.findById(1L)).thenReturn(Optional.of(testUser));
@@ -364,12 +363,11 @@ class TodoServiceTest {
     @DisplayName("TODO 수정 성공")
     void updateTodo_성공() {
         // Given
-        TodoRequest updateRequest = TodoRequest.builder()
-                .title("수정된 제목")
-                .description("수정된 설명")
-                .status(Todo.TodoStatus.IN_PROGRESS)
-                .priority(Todo.Priority.HIGH)
-                .build();
+        TodoRequest updateRequest = todoRequestSupport.monkey();
+        updateRequest.setTitle("수정된 제목");
+        updateRequest.setDescription("수정된 설명");
+        updateRequest.setStatus(Todo.TodoStatus.IN_PROGRESS);
+        updateRequest.setPriority(Todo.Priority.HIGH);
 
         Todo updatedTodo = TodoFixture.aTodoFor(testUser);
         updatedTodo.setTitle("수정된 제목");
@@ -403,9 +401,8 @@ class TodoServiceTest {
     @DisplayName("TODO 수정 실패 - 권한 없음")
     void updateTodo_실패_권한_없음() {
         // Given
-        TodoRequest updateRequest = TodoRequest.builder()
-                .title("수정된 제목")
-                .build();
+        TodoRequest updateRequest = todoRequestSupport.monkey();
+        updateRequest.setTitle("수정된 제목");
 
         when(todoRepository.findByIdAndUserId(1L, 1L)).thenReturn(Optional.empty());
 

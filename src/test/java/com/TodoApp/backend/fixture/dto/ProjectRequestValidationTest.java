@@ -1,7 +1,6 @@
 package com.TodoApp.backend.fixture.dto;
 
 import com.TodoApp.backend.domain.project.dto.ProjectRequest;
-import com.core.test.utils.TestSupport;
 import jakarta.validation.ConstraintViolation;
 import jakarta.validation.Validation;
 import jakarta.validation.Validator;
@@ -9,6 +8,7 @@ import jakarta.validation.ValidatorFactory;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
+import com.core.test.utils.TestSupport;
 
 import java.util.Set;
 
@@ -22,20 +22,20 @@ import static org.assertj.core.api.Assertions.assertThat;
 class ProjectRequestValidationTest {
 
     private static Validator validator;
-    private static TestSupport<ProjectRequest> projectRequestSupport;
+
+    private static final TestSupport<ProjectRequest> projectRequestSupport = new TestSupport<>(ProjectRequest.class);
 
     @BeforeAll
     static void setUp() {
         ValidatorFactory factory = Validation.buildDefaultValidatorFactory();
         validator = factory.getValidator();
-        projectRequestSupport = new TestSupport<>(ProjectRequest.class);
     }
 
     @Test
     @DisplayName("유효한 ProjectRequest 생성")
     void 유효한_ProjectRequest_생성() {
         // Given
-        ProjectRequest request = new ProjectRequest();
+        ProjectRequest request = projectRequestSupport.monkey();
         request.setName("테스트 프로젝트");
         request.setDescription("테스트 설명");
         request.setColor("#3B82F6");
@@ -102,7 +102,7 @@ class ProjectRequestValidationTest {
     @DisplayName("color 형식이 잘못된 경우 검증 실패")
     void color_형식_잘못됨_검증_실패() {
         // Given
-        ProjectRequest request = new ProjectRequest();
+        ProjectRequest request = projectRequestSupport.monkey();
         request.setName("테스트 프로젝트");
         request.setColor("invalid-color"); // HEX 형식 아님
 
@@ -118,7 +118,7 @@ class ProjectRequestValidationTest {
     @DisplayName("color가 유효한 HEX 형식인 경우 검증 통과")
     void color_유효한_HEX_형식_검증_통과() {
         // Given
-        ProjectRequest request = new ProjectRequest();
+        ProjectRequest request = projectRequestSupport.monkey();
         request.setName("테스트 프로젝트");
         request.setColor("#FF0000");
 
@@ -133,7 +133,7 @@ class ProjectRequestValidationTest {
     @DisplayName("description은 null이어도 유효")
     void description_null_유효() {
         // Given
-        ProjectRequest request = new ProjectRequest();
+        ProjectRequest request = projectRequestSupport.monkey();
         request.setName("테스트 프로젝트");
         request.setDescription(null);
         request.setColor("#3B82F6");
