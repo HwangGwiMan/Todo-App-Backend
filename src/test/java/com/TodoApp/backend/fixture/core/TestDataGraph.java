@@ -1,6 +1,7 @@
 package com.TodoApp.backend.fixture.core;
 
 import com.TodoApp.backend.domain.user.entity.User;
+import com.core.test.utils.TestSupport;
 
 import java.util.*;
 import java.util.function.Consumer;
@@ -8,12 +9,14 @@ import java.util.function.Function;
 
 /**
  * 확장 가능한 테스트 데이터 그래프 빌더
+ * test-utils 기반으로 재구현되었습니다.
  * 새로운 엔티티가 추가되어도 쉽게 확장 가능
  */
 public class TestDataGraph {
     
     private final Map<Class<?>, List<?>> entities = new HashMap<>();
     private final Map<String, Object> namedEntities = new HashMap<>();
+    private final Map<Class<?>, TestSupport<?>> testSupports = new HashMap<>();
     
     // User 관련
     private User user;
@@ -55,11 +58,68 @@ public class TestDataGraph {
     }
     
     /**
-     * User를 빌더로부터 생성하여 설정
+     * User를 빌더로부터 생성하여 설정 (하위 호환성 유지)
      */
     public TestDataGraph withUser(Function<com.TodoApp.backend.fixture.UserFixture, User> userBuilder) {
         User user = userBuilder.apply(com.TodoApp.backend.fixture.UserFixture.user());
         return withUser(user);
+    }
+    
+    /**
+     * test-utils를 사용하여 엔티티 생성 및 추가
+     */
+    @SuppressWarnings("unchecked")
+    public <T> TestDataGraph withEntity(Class<T> entityClass) {
+        TestSupport<T> support = (TestSupport<T>) testSupports.computeIfAbsent(
+                entityClass, 
+                k -> new TestSupport<>(entityClass)
+        );
+        T entity = null;
+        try {
+            entity = support.monkey(r -> {});
+        } catch (NoSuchMethodError | NullPointerException e) {
+            // monkey() 메서드가 존재하지 않거나 null을 반환하는 경우
+            entity = null;
+        }
+        if (entity == null) {
+            throw new UnsupportedOperationException("TestSupport.monkey() is not available. Use Fixture classes instead.");
+        }
+        return with(entityClass, entity);
+    }
+    
+    /**
+     * test-utils를 사용하여 커스터마이징된 엔티티 생성 및 추가
+     */
+    @SuppressWarnings("unchecked")
+    public <T> TestDataGraph withEntity(Class<T> entityClass, Consumer<T> customizer) {
+        TestSupport<T> support = (TestSupport<T>) testSupports.computeIfAbsent(
+                entityClass, 
+                k -> new TestSupport<>(entityClass)
+        );
+        T entity = null;
+        try {
+            entity = support.monkey(customizer != null ? customizer : r -> {});
+        } catch (NoSuchMethodError | NullPointerException e) {
+            // monkey() 메서드가 존재하지 않거나 null을 반환하는 경우
+            entity = null;
+        }
+        if (entity == null) {
+            throw new UnsupportedOperationException("TestSupport.monkey() is not available. Use Fixture classes instead.");
+        }
+        return with(entityClass, entity);
+    }
+    
+    /**
+     * test-utils를 사용하여 여러 엔티티 생성 및 추가
+     */
+    @SuppressWarnings("unchecked")
+    public <T> TestDataGraph withManyEntities(Class<T> entityClass, int count) {
+        TestSupport<T> support = (TestSupport<T>) testSupports.computeIfAbsent(
+                entityClass, 
+                k -> new TestSupport<>(entityClass)
+        );
+        List<T> entities = support.monkeyList(count);
+        return withMany(entityClass, entities);
     }
     
     /**

@@ -9,7 +9,10 @@ import com.TodoApp.backend.domain.project.repository.ProjectRepository;
 import com.TodoApp.backend.domain.todo.repository.TodoCountByProject;
 import com.TodoApp.backend.domain.todo.repository.TodoRepository;
 import com.TodoApp.backend.domain.user.entity.User;
+import com.TodoApp.backend.fixture.ProjectFixture;
+import com.TodoApp.backend.fixture.UserFixture;
 import com.TodoApp.backend.global.exception.BusinessException;
+import com.core.test.utils.TestSupport;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -21,7 +24,6 @@ import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.context.ApplicationEventPublisher;
 
 import java.util.Arrays;
-import java.util.HashSet;
 import java.util.List;
 import java.util.Optional;
 
@@ -34,6 +36,9 @@ import static org.mockito.Mockito.lenient;
 @ExtendWith(MockitoExtension.class)
 @DisplayName("ProjectService 테스트")
 class ProjectServiceTest {
+
+    private static final TestSupport<ProjectRequest> projectRequestSupport = new TestSupport<>(ProjectRequest.class);
+    private static final TestSupport<Project> projectSupport = new TestSupport<>(Project.class);
 
     @Mock
     private ProjectRepository projectRepository;
@@ -56,25 +61,16 @@ class ProjectServiceTest {
 
     @BeforeEach
     void setUp() {
-        testUser = User.builder()
-                .username("testuser")
-                .email("test@example.com")
-                .password("password")
-                .roles(new HashSet<>(1))
-                .build();
+        // Fixture를 사용하여 테스트 데이터 생성
+        testUser = UserFixture.aUser();
         testUser.setId(1L);
 
-        testProject = Project.builder()
-                .user(testUser)
-                .name("테스트 프로젝트")
-                .description("테스트 설명")
-                .color("#3B82F6")
-                .isDefault(false)
-                .position(0)
-                .build();
+        testProject = projectSupport.monkey();
+        testProject.setName("테스트 프로젝트");
+        testProject.setDescription("테스트 설명");
         testProject.setId(1L);
 
-        projectRequest = new ProjectRequest();
+        projectRequest = projectRequestSupport.monkey();
         projectRequest.setName("새로운 프로젝트");
         projectRequest.setDescription("새로운 설명");
         projectRequest.setColor("#FF0000");
@@ -143,10 +139,8 @@ class ProjectServiceTest {
     @DisplayName("사용자별 프로젝트 목록 조회 성공")
     void getProjectsByUser_성공() {
         // Given
-        Project project2 = Project.builder()
-                .user(testUser)
-                .name("프로젝트 2")
-                .build();
+        Project project2 = ProjectFixture.aProjectFor(testUser);
+        project2.setName("프로젝트 2");
         project2.setId(2L);
 
         List<Project> projects = Arrays.asList(testProject, project2);
@@ -216,14 +210,12 @@ class ProjectServiceTest {
     @DisplayName("프로젝트 생성 성공")
     void createProject_성공() {
         // Given
-        Project newProject = Project.builder()
-                .user(testUser)
-                .name("새로운 프로젝트")
-                .description("새로운 설명")
-                .color("#FF0000")
-                .isDefault(false)
-                .position(1)
-                .build();
+        Project newProject = ProjectFixture.aProjectFor(testUser);
+        newProject.setName("새로운 프로젝트");
+        newProject.setDescription("새로운 설명");
+        newProject.setColor("#FF0000");
+        newProject.setIsDefault(false);
+        newProject.setPosition(1);
         newProject.setId(2L);
 
         when(projectRepository.existsByUserAndName(testUser, "새로운 프로젝트")).thenReturn(false);
@@ -265,23 +257,19 @@ class ProjectServiceTest {
     @DisplayName("프로젝트 생성 - 기본 프로젝트 설정 시 기존 기본 프로젝트 해제")
     void createProject_기본_프로젝트_설정() {
         // Given
-        Project existingDefaultProject = Project.builder()
-                .user(testUser)
-                .name("기존 기본 프로젝트")
-                .isDefault(true)
-                .build();
+        Project existingDefaultProject = ProjectFixture.aProjectFor(testUser);
+        existingDefaultProject.setName("기존 기본 프로젝트");
+        existingDefaultProject.setIsDefault(true);
         existingDefaultProject.setId(2L);
 
         ProjectRequest defaultProjectRequest = new ProjectRequest();
         defaultProjectRequest.setName("새로운 기본 프로젝트");
         defaultProjectRequest.setIsDefault(true);
 
-        Project newDefaultProject = Project.builder()
-                .user(testUser)
-                .name("새로운 기본 프로젝트")
-                .isDefault(true)
-                .position(1)
-                .build();
+        Project newDefaultProject = ProjectFixture.aProjectFor(testUser);
+        newDefaultProject.setName("새로운 기본 프로젝트");
+        newDefaultProject.setIsDefault(true);
+        newDefaultProject.setPosition(1);
         newDefaultProject.setId(3L);
 
         when(projectRepository.existsByUserAndName(testUser, "새로운 기본 프로젝트")).thenReturn(false);
@@ -309,13 +297,11 @@ class ProjectServiceTest {
         updateRequest.setColor("#00FF00");
         updateRequest.setIsDefault(false);
 
-        Project updatedProject = Project.builder()
-                .user(testUser)
-                .name("수정된 프로젝트")
-                .description("수정된 설명")
-                .color("#00FF00")
-                .isDefault(false)
-                .build();
+        Project updatedProject = ProjectFixture.aProjectFor(testUser);
+        updatedProject.setName("수정된 프로젝트");
+        updatedProject.setDescription("수정된 설명");
+        updatedProject.setColor("#00FF00");
+        updatedProject.setIsDefault(false);
         updatedProject.setId(1L);
 
         when(projectRepository.findByIdAndUser(1L, testUser)).thenReturn(Optional.of(testProject));
@@ -375,11 +361,7 @@ class ProjectServiceTest {
     @DisplayName("프로젝트 삭제 실패 - 기본 프로젝트")
     void deleteProject_실패_기본_프로젝트() {
         // Given
-        Project defaultProject = Project.builder()
-                .user(testUser)
-                .name("기본 프로젝트")
-                .isDefault(true)
-                .build();
+        Project defaultProject = ProjectFixture.aDefaultProjectFor(testUser);
         defaultProject.setId(1L);
 
         when(projectRepository.findByIdAndUser(1L, testUser)).thenReturn(Optional.of(defaultProject));
@@ -398,11 +380,7 @@ class ProjectServiceTest {
     @DisplayName("기본 프로젝트 조회 성공")
     void getDefaultProject_성공() {
         // Given
-        Project defaultProject = Project.builder()
-                .user(testUser)
-                .name("기본 프로젝트")
-                .isDefault(true)
-                .build();
+        Project defaultProject = ProjectFixture.aDefaultProjectFor(testUser);
         defaultProject.setId(1L);
 
         when(projectRepository.findByUserAndIsDefaultTrue(testUser)).thenReturn(Optional.of(defaultProject));
@@ -439,14 +417,8 @@ class ProjectServiceTest {
     @DisplayName("기본 프로젝트 생성 성공")
     void createDefaultProject_성공() {
         // Given
-        Project defaultProject = Project.builder()
-                .user(testUser)
-                .name("기본 프로젝트")
-                .description("기본적으로 생성된 프로젝트입니다.")
-                .color("#3B82F6")
-                .isDefault(true)
-                .position(0)
-                .build();
+        Project defaultProject = ProjectFixture.aDefaultProjectFor(testUser);
+        defaultProject.setDescription("기본적으로 생성된 프로젝트입니다.");
         defaultProject.setId(1L);
 
         when(projectRepository.findByUserAndIsDefaultTrue(testUser)).thenReturn(Optional.empty());
@@ -474,11 +446,8 @@ class ProjectServiceTest {
     @DisplayName("기본 프로젝트 생성 실패 - 이미 존재")
     void createDefaultProject_실패_이미_존재() {
         // Given
-        Project existingDefaultProject = Project.builder()
-                .user(testUser)
-                .name("기존 기본 프로젝트")
-                .isDefault(true)
-                .build();
+        Project existingDefaultProject = ProjectFixture.aDefaultProjectFor(testUser);
+        existingDefaultProject.setName("기존 기본 프로젝트");
         existingDefaultProject.setId(1L);
 
         when(projectRepository.findByUserAndIsDefaultTrue(testUser)).thenReturn(Optional.of(existingDefaultProject));

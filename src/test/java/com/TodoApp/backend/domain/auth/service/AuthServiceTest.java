@@ -7,6 +7,7 @@ import com.TodoApp.backend.domain.permission.entity.Role;
 import com.TodoApp.backend.domain.permission.repository.RoleRepository;
 import com.TodoApp.backend.domain.user.entity.User;
 import com.TodoApp.backend.domain.user.repository.UserRepository;
+import com.TodoApp.backend.fixture.UserFixture;
 import com.TodoApp.backend.global.exception.BusinessException;
 import com.TodoApp.backend.global.security.JwtUtil;
 import org.junit.jupiter.api.BeforeEach;
@@ -65,12 +66,9 @@ class AuthServiceTest {
 
     @BeforeEach
     void setUp() {
-        testUser = User.builder()
-                .username("testuser")
-                .email("test@example.com")
-                .password("encodedPassword")
-                .roles(new HashSet<>(1))
-                .build();
+        // Fixture를 사용하여 테스트 데이터 생성
+        testUser = UserFixture.aUserWith("testuser", "test@example.com");
+        testUser.setPassword("encodedPassword");
         testUser.setId(1L);
 
         signupRequest = new SignupRequest();
