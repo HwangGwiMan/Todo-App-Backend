@@ -63,5 +63,7 @@ dependencies {
 }
 
 tasks.named('test') {
-	useJUnitPlatform()
+    useJUnitPlatform()
+    maxHeapSize = "2g"  // 또는 "4g"
+    jvmArgs = ['-Xmx2g', '-Xms512m']
 }
