@@ -69,6 +69,7 @@ class ProjectServiceTest {
         testProject.setName("테스트 프로젝트");
         testProject.setDescription("테스트 설명");
         testProject.setId(1L);
+        testProject.setIsDefault(false);  // 기본 프로젝트가 아니도록 명시적 설정
 
         projectRequest = projectRequestSupport.monkey();
         projectRequest.setName("새로운 프로젝트");
