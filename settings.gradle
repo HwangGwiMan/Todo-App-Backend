@@ -1,3 +1,6 @@
 rootProject.name = 'backend'
 
-includeBuild("test-utils")
+def testUtilsDir = file("test-utils")
+if (testUtilsDir.exists()) {
+    includeBuild(testUtilsDir)
+}
