@@ -59,7 +59,10 @@ dependencies {
 	testImplementation 'org.springframework.security:spring-security-test'
 	testRuntimeOnly 'org.junit.platform:junit-platform-launcher'
 
-	testImplementation 'com.utils:test-utils'
+    if (file("test-utils").exists()) {
+        testImplementation("com.utils:test-utils:1.0-SNAPSHOT")
+    }
+
 }
 
 tasks.named('test') {
