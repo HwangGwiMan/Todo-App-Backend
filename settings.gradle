@@ -1,6 +1,3 @@
 rootProject.name = 'backend'
 
-def testUtilsDir = file("test-utils")
-if (testUtilsDir.exists()) {
-    includeBuild(testUtilsDir)
-}
+includeBuild("test-utils")
