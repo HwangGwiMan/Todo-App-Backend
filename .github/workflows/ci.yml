@@ -65,7 +65,7 @@ jobs:
         run: ./gradlew build -x test
       
       - name: Upload test results
-        uses: actions/upload-artifact@v6
+        uses: actions/upload-artifact@v7
         if: always()
         with:
           name: test-results
@@ -73,7 +73,7 @@ jobs:
           retention-days: 7
       
       - name: Upload test report
-        uses: actions/upload-artifact@v6
+        uses: actions/upload-artifact@v7
         if: always()
         with:
           name: test-report
@@ -81,7 +81,7 @@ jobs:
           retention-days: 7
       
       - name: Upload build artifacts
-        uses: actions/upload-artifact@v6
+        uses: actions/upload-artifact@v7
         if: success()
         with:
           name: backend-jar
